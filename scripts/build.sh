@@ -48,9 +48,13 @@ fi
 gradle_build() {
   local android_dir="$1" task="$2"
   cd "$android_dir"
-  [[ -f gradlew ]] || { echo "Gradle Wrapper ausente em $android_dir" >&2; exit 2; }
-  chmod +x gradlew
-  ./gradlew --no-daemon ":$UB_MODULE:$task"
+  if [[ -f gradlew ]]; then
+    chmod +x gradlew
+    ./gradlew --no-daemon ":$UB_MODULE:$task"
+  else
+    echo "Gradle Wrapper não encontrado: usando Gradle provisionado pelo GitHub Actions (compatibilidade dependente do projeto)."
+    gradle --no-daemon ":$UB_MODULE:$task"
+  fi
 }
 install_js_deps() {
   cd "$project"
