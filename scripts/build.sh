@@ -7,7 +7,7 @@ set -euo pipefail
 : "${RUNNER_TEMP:?}"
 UB_MODULE="${UB_MODULE:-app}"
 [[ "$UB_MODULE" =~ ^[a-zA-Z0-9_]+$ ]] || { echo "Módulo Gradle inválido" >&2; exit 2; }
-case "$UB_TARGET" in apk|aab|both|release-apk) ;; *) echo "Alvo inválido: $UB_TARGET" >&2; exit 2;; esac
+case "$UB_TARGET" in apk|aab|both|release-apk|aab-unsigned|both-unsigned) ;; *) echo "Alvo inválido: $UB_TARGET" >&2; exit 2;; esac
 project="$(realpath "$UB_PROJECT_DIR")"
 workspace="$(realpath "$GITHUB_WORKSPACE")"
 [[ "$project" == "$workspace" || "$project" == "$workspace/"* ]] || { echo "Pasta fora do workspace" >&2; exit 2; }
@@ -19,11 +19,12 @@ want_release=false
 case "$UB_TARGET" in
   apk) want_apk=true ;;
   aab|release-apk) want_release=true ;;
-  both) want_apk=true; want_release=true ;;
+  both|both-unsigned) want_apk=true; want_release=true ;;
+  aab-unsigned) want_release=true ;;
 esac
 
 # O projeto precisa configurar sua release signing lendo as variáveis UNIVERSAL_*.
-if [[ "$want_release" == true ]]; then
+if [[ "$want_release" == true && "$UB_TARGET" != aab-unsigned && "$UB_TARGET" != both-unsigned ]]; then
   for item in UB_KEYSTORE_BASE64 UB_KEYSTORE_PASSWORD UB_KEY_ALIAS UB_KEY_PASSWORD; do
     [[ -n "${!item:-}" ]] || { echo "Para release assinada configure os quatro secrets ANDROID_KEYSTORE_* no repositório do aplicativo." >&2; exit 3; }
   done
@@ -99,16 +100,25 @@ copy_result() {
   local pattern="$1" name="$2" path
   path="$(find "$outputs" -type f -name "$pattern" -print -quit 2>/dev/null || true)"
   [[ -n "$path" && -s "$path" ]] || { echo "Arquivo esperado não produzido: $pattern (em $outputs)" >&2; exit 4; }
-  if [[ "$name" == *.aab ]]; then
-    # -strict falha com certificados autoassinados de upload, que são válidos para Play App Signing.
-    # Confirmar o texto de verificação evita falsos positivos em arquivos sem assinatura.
-    local signature_report
-    signature_report="$(jarsigner -verify "$path" 2>&1)" || {
-      echo "AAB com assinatura inválida: $signature_report" >&2; exit 4
-    }
-    [[ "$signature_report" == *"jar verified"* ]] || {
-      echo "AAB sem assinatura verificável: $signature_report" >&2; exit 4
-    }
+  if [[ "$name" == *.aab || "$name" == unsigned.aab ]]; then
+    if [[ "$name" == unsigned.aab ]]; then
+      local unsigned_report
+      unsigned_report="$(jarsigner -verify "$path" 2>&1 || true)"
+      [[ "$unsigned_report" == *"jar is unsigned"* ]] || {
+        echo "AAB esperado sem assinatura, mas a configuração Gradle produziu um AAB assinado. Remova o signingConfig de release para o modo unsigned." >&2; exit 4
+      }
+    else
+      # -strict falha com certificados autoassinados de upload, que são válidos para Play App Signing.
+      # Confirmar o texto de verificação evita falsos positivos em arquivos sem assinatura.
+      local signature_report
+      signature_report="$(jarsigner -verify "$path" 2>&1)" || {
+        echo "AAB com assinatura inválida: $signature_report" >&2; exit 4
+      }
+      [[ "$signature_report" == *"jar verified"* ]] || {
+        echo "AAB sem assinatura verificável: $signature_report" >&2; exit 4
+      }
+
+    fi
     # Para novos apps Android mobile, Google Play exige API de destino >= 36 desde agosto/2026.
     # Validação no manifesto compilado, não apenas no build.gradle original.
     local bundletool="$RUNNER_TEMP/bundletool-all-1.18.3.jar" required_api=36 target_api version_code
@@ -125,7 +135,7 @@ copy_result() {
     [[ "$version_code" =~ ^[0-9]+$ && "$version_code" -gt 0 ]] || {
       echo "AAB inválido: versionCode ausente ou inválido." >&2; exit 4
     }
-    echo "Play Store: AAB assinado, targetSdk=$target_api e versionCode=$version_code (não garante aprovação na loja)."
+    echo "Play Store: AAB validado (assinatura: $name), targetSdk=$target_api e versionCode=$version_code (não garante aprovação na loja)."
   elif [[ "$name" == release.apk ]]; then
     local verifier
     verifier="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
@@ -138,8 +148,9 @@ copy_result() {
 if [[ "$want_apk" == true ]]; then copy_result '*-debug.apk' debug.apk; fi
 if [[ "$want_release" == true ]]; then
   if [[ "$UB_TARGET" == release-apk ]]; then copy_result '*-release.apk' release.apk
+  elif [[ "$UB_TARGET" == aab-unsigned || "$UB_TARGET" == both-unsigned ]]; then copy_result '*.aab' unsigned.aab
   else copy_result '*.aab' release.aab; fi
 fi
 # Credenciais não são carregadas nos artefatos.
 if [[ -n "${UNIVERSAL_STORE_FILE:-}" ]]; then rm -f "$UNIVERSAL_STORE_FILE"; fi
-if [[ "$UB_KIND" == flutter && "$want_release" == true ]]; then rm -f "$project/android/key.properties"; fi
+if [[ "$UB_KIND" == flutter && -n "${UNIVERSAL_STORE_FILE:-}" ]]; then rm -f "$project/android/key.properties"; fi

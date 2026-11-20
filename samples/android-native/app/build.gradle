@@ -23,7 +23,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.universalRelease
+            if (System.getenv('UNIVERSAL_STORE_FILE')) {
+                signingConfig signingConfigs.universalRelease
+            }
         }
     }
 }

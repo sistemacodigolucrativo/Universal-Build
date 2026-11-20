@@ -11,6 +11,16 @@ Fontes oficiais:
 - https://developer.android.com/studio/publish/preparing
 - https://support.google.com/googleplay/android-developer/answer/11926878?hl=pt-BR
 
+## Assinatura posterior — fluxo recomendado
+
+1. Compilar em modo `aab-unsigned` ou `both-unsigned`. Não há necessidade de disponibilizar a chave de upload durante a compilação.
+2. Na interface, localizar o build bem-sucedido, selecionar o artefato `unsigned.aab`.
+3. O painel aciona `.github/workflows/universal-sign.yml` no repositório do aplicativo; esse workflow chama o assinador reutilizável do Universal-Build.
+4. O assinador baixa o artefato original, aplica `jarsigner` em um job separado e valida assinatura, `targetSdk` e `versionCode`.
+5. O resultado `release-signed.aab` pode ser enviado ao Play Console quando os demais requisitos forem atendidos.
+
+O `AAB` unsigned NÃO é aceito pela Play Store. O APK debug já vem assinado com chave de testes (não é o formato para novas publicações).
+
 ## Como provisionar assinatura com segurança
 
 Em cada repositório do **aplicativo** (não no repositório público Universal-Build):

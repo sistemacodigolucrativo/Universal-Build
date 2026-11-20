@@ -10,7 +10,27 @@ Painel sem backend/banco de dados, para uso individual. Inclui:
 - envio de parâmetros e acionamento do GitHub Actions;
 - histórico e acesso aos APK/AAB por meio da página de execução no GitHub.
 
-## Vercel (após integrar a branch main)
+## GitHub Pages (hospedagem principal)
+
+1. Acesse `Settings → Pages` no Universal-Build.
+2. Em **Build and deployment → Source**, escolha **GitHub Actions**.
+3. Confirme a execução do workflow **Publicar Universal Build no GitHub Pages**.
+4. Após a implantação, abra https://sistemacodigolucrativo.github.io/Universal-Build/.
+5. Se o site não abrir, confira `Actions → Publicar Universal Build no GitHub Pages`; não exponha tokens para solucionar erros.
+
+O deploy publica **somente** a pasta `dashboard/`. O repositório e seus scripts ficam disponíveis no GitHub.
+
+## Como assinar AAB depois de compilar
+
+1. No painel, selecione `AAB sem assinatura` (`aab-unsigned`) e inicie o build.
+2. Aguarde a execução concluir; o artefato será listado.
+3. Cadastre no repositório do **aplicativo** os 4 secrets de assinatura documentados em `docs/ASSINATURA-E-PLAY-STORE.md`.
+4. Clique em **Assinar este AAB** no artefato ou digite o Run ID e nome do artefato.
+5. Inicie **Assinar AAB na nuvem**. Um novo workflow gera o AAB assinado para upload à Play Store.
+
+O modo de assinatura posterior não recompila o código-fonte. APK de debug não precisa dessa etapa.
+
+## Vercel (hospedagem alternativa)
 1. Importar o repositório `sistemacodigolucrativo/Universal-Build`.
 2. **Root Directory**: `dashboard`.
 3. **Framework Preset**: `Other`.

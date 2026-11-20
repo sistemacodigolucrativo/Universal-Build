@@ -4,6 +4,8 @@ on:
     branches:
       - main
       - implementation/**
+      - feat/**
+      - fix/**
   pull_request:
   workflow_dispatch:
 
@@ -20,6 +22,7 @@ jobs:
           set -euo pipefail
           bash -n scripts/detect.sh
           bash -n scripts/build.sh
+          bash -n scripts/sign-aab.sh
           bash -n tests/test-detect.sh
           python3 -m py_compile scripts/extract_zip.py
           node --check dashboard/app.js

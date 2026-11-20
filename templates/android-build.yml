@@ -4,12 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       build_target:
-        description: "apk=teste, aab=Play Store, both=ambos, release-apk=APK assinado"
+        description: "apk=teste, aab-unsigned=para assinar depois, aab=assinado, both=debug+assinado"
         required: true
         type: choice
         default: apk
         options:
           - apk
+          - aab-unsigned
+          - both-unsigned
           - aab
           - both
           - release-apk

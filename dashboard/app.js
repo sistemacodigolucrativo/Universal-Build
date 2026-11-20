@@ -169,9 +169,11 @@
     $("install-btn").disabled = !active;
     $("run-btn").disabled = !active;
     $("refresh-runs").disabled = !active;
+    $("sign-btn").disabled = !active;
     $("open-repo").hidden = !active;
     if (active) {
       $("open-repo").href = "https://github.com/" + state.repo.full_name;
+      $("secrets-link").href = "https://github.com/" + state.repo.full_name + "/settings/secrets/actions";
       refreshRuns();
     } else {
       $("run-list").replaceChildren();
@@ -196,8 +198,8 @@
       notice("Repositório criado: " + repo.full_name);
     } catch (err) { notice(err.message + ". Se o token não permitir criação, crie o repositório pelo site GitHub.", true); }
   }
-  async function template() {
-    const path = "/repos/" + CORE + "/contents/templates/android-build.yml?ref=main";
+  async function template(file = "android-build.yml") {
+    const path = "/repos/" + CORE + "/contents/templates/" + file + "?ref=main";
     return decodeGitHubFile(await api(path));
   }
   async function ensureWorkflow(force) {
@@ -216,13 +218,56 @@
     await api(path, { method: "PUT", body: JSON.stringify(body) });
     return true;
   }
+  async function ensureSignWorkflow(force = false) {
+    const repo = selected();
+    const path = repoPath(repo) + "/contents/.github/workflows/universal-sign.yml";
+    let existing = null;
+    try { existing = await api(path + "?ref=" + encodeURIComponent(repo.default_branch)); }
+    catch (e) { if (e.status !== 404) throw e; }
+    if (existing && !force) return false;
+    const yml = await template("android-sign.yml");
+    const body = {
+      message: (existing ? "ci: atualizar" : "ci: instalar") + " workflow de assinatura Universal Build",
+      content: utf8Base64(yml), branch: repo.default_branch
+    };
+    if (existing) body.sha = existing.sha;
+    await api(path, { method: "PUT", body: JSON.stringify(body) });
+    return true;
+  }
   async function installWorkflow() {
     const btn = $("install-btn");
     btn.disabled = true;
-    notice("Instalando workflow reutilizável no repositório selecionado...");
+    if (!confirm("Instalar ou sobrescrever os dois workflows do Universal Build neste repositório?")) {
+      btn.disabled = !state.repo;
+      return;
+    }
+    notice("Instalando os workflows de compilação e assinatura...");
     try {
-      const changed = await ensureWorkflow(true);
-      notice(changed ? "Workflow instalado/atualizado. A ativação pode levar alguns segundos no GitHub." : "Workflow existente.");
+      await ensureWorkflow(true);
+      await ensureSignWorkflow(true);
+      notice("Workflows instalados/atualizados. A ativação pode levar alguns segundos.");
+    } catch (err) { notice(err.message, true); }
+    finally { btn.disabled = !state.repo; }
+  }
+  async function signBuild(ev) {
+    ev.preventDefault();
+    const btn = $("sign-btn");
+    btn.disabled = true;
+    try {
+      const repo = selected();
+      const runId = $("sign-run-id").value.trim();
+      const name = $("sign-artifact").value.trim();
+      if (!/^[0-9]+$/.test(runId) || !/^[A-Za-z0-9._-]+$/.test(name) || !/-aab-unsigned$|-both-unsigned$/.test(name)) {
+        throw new Error("Informe o Run ID e o nome de um artefato AAB unsigned criado pelo Universal Build.");
+      }
+      notice("Verificando workflow de assinatura...");
+      await ensureSignWorkflow(false);
+      await api(repoPath(repo) + "/actions/workflows/universal-sign.yml/dispatches", {
+        method: "POST",
+        body: JSON.stringify({ ref: repo.default_branch, inputs: { source_run_id: runId, artifact_name: name } })
+      });
+      notice("Assinatura solicitada! Acompanhe o processo no histórico. A chave de upload deve estar configurada nos Secrets do aplicativo.");
+      await refreshRuns();
     } catch (err) { notice(err.message, true); }
     finally { btn.disabled = !state.repo; }
   }
@@ -295,46 +340,87 @@
     const repo = state.repo;
     const list = $("run-list");
     list.replaceChildren();
-    const p = document.createElement("p");
-    p.className = "small";
-    p.textContent = "Buscando execuções...";
-    list.append(p);
+    const waiting = document.createElement("p");
+    waiting.className = "small";
+    waiting.textContent = "Consultando builds e assinaturas no GitHub...";
+    list.append(waiting);
     try {
-      const result = await api(repoPath(repo) + "/actions/workflows/universal-build.yml/runs?per_page=10");
+      const workflows = ["universal-build.yml", "universal-sign.yml"];
+      const groups = await Promise.all(workflows.map(async (workflow) => {
+        try {
+          const response = await api(repoPath(repo) + "/actions/workflows/" + workflow + "/runs?per_page=12");
+          return response.workflow_runs || [];
+        } catch (err) {
+          if (err.status === 404) return [];
+          throw err;
+        }
+      }));
       if (!state.repo || state.repo.full_name !== repo.full_name) return;
+      const runs = groups.flat().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 15);
       list.replaceChildren();
-      if (!result.workflow_runs.length) {
-        p.textContent = "Ainda não há builds nesse repositório.";
-        list.append(p);
+      if (!runs.length) {
+        waiting.textContent = "Ainda não há compilações. Instale os workflows e inicie o primeiro build.";
+        list.append(waiting);
         return;
       }
-      for (const run of result.workflow_runs) {
+      for (const run of runs) {
+        const isSign = run.path && run.path.endsWith("/universal-sign.yml");
         const row = document.createElement("div");
         row.className = "run";
-        const text = document.createElement("div");
+        const details = document.createElement("div");
+        details.className = "run-details";
         const title = document.createElement("div");
         title.className = "run-title";
-        title.textContent = "Build #" + run.run_number + " · " + run.head_branch;
+        title.textContent = (isSign ? "Assinatura" : "Build") + " #" + run.run_number + " · " + run.head_branch;
         const meta = document.createElement("div");
         meta.className = "run-meta";
-        meta.textContent = new Date(run.created_at).toLocaleString("pt-BR") + " · " + (run.display_title || "Android");
+        meta.textContent = new Date(run.created_at).toLocaleString("pt-BR") + " · Run ID: " + run.id;
         const link = document.createElement("a");
         link.href = "https://github.com/" + repo.full_name + "/actions/runs/" + run.id;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
-        link.textContent = "Ver build e baixar ↗";
-        text.append(title, meta, link);
+        link.textContent = "Ver logs e baixar artefatos ↗";
+        details.append(title, meta, link);
         const status = document.createElement("span");
-        const s = run.conclusion || run.status;
-        status.className = "state " + (s === "success" ? "success" : s === "failure" ? "failure" : "");
-        status.textContent = ({ success: "Sucesso", failure: "Falha", in_progress: "Executando", queued: "Na fila", cancelled: "Cancelado" })[s] || s;
-        row.append(text, status);
+        const st = run.conclusion || run.status;
+        status.className = "state " + (st === "success" ? "success" : st === "failure" ? "failure" : "");
+        status.textContent = ({ success: "Concluído", failure: "Falha", in_progress: "Executando", queued: "Na fila", cancelled: "Cancelado" })[st] || st;
+        row.append(details, status);
         list.append(row);
+        if (st === "success") {
+          try {
+            const artifacts = await api(repoPath(repo) + "/actions/runs/" + run.id + "/artifacts?per_page=30");
+            if (!state.repo || state.repo.full_name !== repo.full_name) return;
+            for (const artifact of artifacts.artifacts || []) {
+              const artifactLine = document.createElement("div");
+              artifactLine.className = "artifact-line";
+              const label = document.createElement("span");
+              label.textContent = "📦 " + artifact.name + (artifact.expired ? " (expirado)" : "");
+              artifactLine.append(label);
+              if (!artifact.expired && !isSign && (artifact.name.endsWith("-aab-unsigned") || artifact.name.endsWith("-both-unsigned"))) {
+                const signBtn = document.createElement("button");
+                signBtn.type = "button";
+                signBtn.className = "secondary";
+                signBtn.textContent = "Assinar este AAB";
+                signBtn.addEventListener("click", () => {
+                  $("sign-run-id").value = String(run.id);
+                  $("sign-artifact").value = artifact.name;
+                  $("sign-form").scrollIntoView({ behavior: "smooth", block: "center" });
+                  notice("AAB selecionado. Clique em Assinar AAB na nuvem.");
+                });
+                artifactLine.append(signBtn);
+              }
+              details.append(artifactLine);
+            }
+          } catch (_) {
+            // A ausência de permissão para listar artefatos não impede abrir a execução.
+          }
+        }
       }
     } catch (err) {
       list.replaceChildren();
-      p.textContent = "Histórico indisponível: " + err.message;
-      list.append(p);
+      waiting.textContent = "Histórico indisponível: " + err.message;
+      list.append(waiting);
     }
   }
 
@@ -345,9 +431,14 @@
   $("new-repo-form").addEventListener("submit", createRepo);
   $("install-btn").addEventListener("click", installWorkflow);
   $("build-form").addEventListener("submit", runBuild);
+  $("sign-form").addEventListener("submit", signBuild);
   $("refresh-runs").addEventListener("click", refreshRuns);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) isSessionValid();
   });
+  // Atualização discreta enquanto o painel está em primeiro plano.
+  window.setInterval(() => {
+    if (!document.hidden && state.repo && isSessionValid()) refreshRuns();
+  }, 30000);
   restore();
 })();
