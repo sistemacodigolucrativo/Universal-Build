@@ -96,7 +96,24 @@ copy_result() {
   path="$(find "$outputs" -type f -name "$pattern" -print -quit 2>/dev/null || true)"
   [[ -n "$path" && -s "$path" ]] || { echo "Arquivo esperado não produzido: $pattern (em $outputs)" >&2; exit 4; }
   if [[ "$name" == *.aab ]]; then
-    jarsigner -verify "$path" >/dev/null || { echo "AAB não possui assinatura verificável" >&2; exit 4; }
+    jarsigner -verify -strict "$path" >/dev/null || { echo "AAB não possui assinatura verificável" >&2; exit 4; }
+    # Para novos apps Android mobile, Google Play exige API de destino >= 36 desde agosto/2026.
+    # Validação no manifesto compilado, não apenas no build.gradle original.
+    local bundletool="$RUNNER_TEMP/bundletool-all-1.18.3.jar" required_api=36 target_api version_code
+    curl --fail --location --silent --show-error --retry 3 \
+      "https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar" \
+      --output "$bundletool"
+    [[ -s "$bundletool" ]] || { echo "bundletool indisponível; não é possível validar o AAB." >&2; exit 4; }
+    target_api="$(java -jar "$bundletool" dump manifest --bundle="$path" --xpath='/manifest/uses-sdk/@android:targetSdkVersion' | tr -dc '0-9')"
+    version_code="$(java -jar "$bundletool" dump manifest --bundle="$path" --xpath='/manifest/@android:versionCode' | tr -dc '0-9')"
+    [[ "$target_api" =~ ^[0-9]+$ && "$target_api" -ge "$required_api" ]] || {
+      echo "AAB incompatível com Google Play: targetSdk=$target_api; mínimo exigido: API $required_api." >&2
+      exit 4
+    }
+    [[ "$version_code" =~ ^[0-9]+$ && "$version_code" -gt 0 ]] || {
+      echo "AAB inválido: versionCode ausente ou inválido." >&2; exit 4
+    }
+    echo "Play Store: AAB assinado, targetSdk=$target_api e versionCode=$version_code (não garante aprovação na loja)."
   elif [[ "$name" == release.apk ]]; then
     local verifier
     verifier="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
