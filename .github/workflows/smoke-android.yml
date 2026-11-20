@@ -79,3 +79,38 @@ jobs:
           path: ${{ runner.temp }}/ub-artifacts/*.apk
           if-no-files-found: error
           retention-days: 7
+      - name: Compilar AAB sem assinatura para assinatura posterior
+        env:
+          UB_PROJECT_DIR: samples/android-native
+          UB_KIND: android
+          UB_TARGET: aab-unsigned
+          UB_MODULE: app
+        run: bash scripts/build.sh
+      - name: Publicar AAB unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: Universal-Build-Smoke-Unsigned-AAB
+          path: ${{ runner.temp }}/ub-artifacts/unsigned.aab
+          if-no-files-found: error
+          retention-days: 7
+      - name: Assinar AAB depois do build sem recompilar
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -noprompt -keyalg RSA -keysize 2048 -validity 7 \
+            -alias upload -keystore "$RUNNER_TEMP/postbuild.jks" \
+            -storepass 'TemporaryTest2026!' -keypass 'TemporaryTest2026!' \
+            -dname 'CN=Universal Build Test, O=Laboratory, C=BR'
+          export UB_SOURCE_AAB="$RUNNER_TEMP/ub-artifacts/unsigned.aab"
+          export UB_KEYSTORE_BASE64="$(base64 -w0 "$RUNNER_TEMP/postbuild.jks")"
+          export UB_KEYSTORE_PASSWORD='TemporaryTest2026!'
+          export UB_KEY_ALIAS=upload
+          export UB_KEY_PASSWORD='TemporaryTest2026!'
+          bash scripts/sign-aab.sh
+          rm -f "$RUNNER_TEMP/postbuild.jks"
+      - name: Publicar AAB pós-assinatura de laboratório
+        uses: actions/upload-artifact@v4
+        with:
+          name: Universal-Build-Smoke-Post-Sign
+          path: ${{ runner.temp }}/signing/release-signed.aab
+          if-no-files-found: error
+          retention-days: 7
