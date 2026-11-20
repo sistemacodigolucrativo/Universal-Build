@@ -1,0 +1,65 @@
+# Instalar em: .github/workflows/universal-build.yml de CADA repositório Android.
+name: Universal Build - Compilar Android
+on:
+  workflow_dispatch:
+    inputs:
+      build_target:
+        description: "apk=teste, aab=Play Store, both=ambos, release-apk=APK assinado"
+        required: true
+        type: choice
+        default: apk
+        options:
+          - apk
+          - aab
+          - both
+          - release-apk
+      project_dir:
+        description: "Pasta do projeto; padrão: raiz"
+        required: false
+        default: .
+        type: string
+      upload_zip_path:
+        description: "ZIP opcional salvo em uploads/nome.zip"
+        required: false
+        default: ''
+        type: string
+      android_module:
+        description: "Módulo Gradle Android (normalmente app)"
+        required: false
+        default: app
+        type: string
+      java_version:
+        description: "Java (17 ou 21, conforme projeto)"
+        required: false
+        default: '17'
+        type: string
+      node_version:
+        description: "Node.js para React Native"
+        required: false
+        default: '20'
+        type: string
+      flutter_version:
+        description: "Flutter: vazio = stable atual, ou versão definida pelo projeto"
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  universal-build:
+    uses: sistemacodigolucrativo/Universal-Build/.github/workflows/android-reusable.yml@main
+    with:
+      build_target: ${{ inputs.build_target }}
+      project_dir: ${{ inputs.project_dir }}
+      upload_zip_path: ${{ inputs.upload_zip_path }}
+      android_module: ${{ inputs.android_module }}
+      java_version: ${{ inputs.java_version }}
+      node_version: ${{ inputs.node_version }}
+      flutter_version: ${{ inputs.flutter_version }}
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
