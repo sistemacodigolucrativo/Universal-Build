@@ -36,6 +36,7 @@ data class AppConfig(
     val startUrl: String,
     val allowedHosts: Set<String>,
     val primaryColor: String,
+    val themeMode: String,
     val navigation: AppNavigation,
     val features: AppFeatures,
     val security: AppSecurity
@@ -74,6 +75,7 @@ data class AppConfig(
                 startUrl = json.getString("startUrl"),
                 allowedHosts = allowedHosts,
                 primaryColor = theme.getString("primaryColor"),
+                themeMode = theme.getString("mode"),
                 navigation = AppNavigation(
                     navigation.getBoolean("topBar"),
                     navigation.getBoolean("bottomBar"),
@@ -95,6 +97,8 @@ data class AppConfig(
                     security.getBoolean("allowExternalLinks")
                 )
             )
+            require(config.themeMode in listOf("system", "dark", "light")) { "Modo de tema inválido" }
+            require(Regex("^#[0-9a-fA-F]{6}$").matches(config.primaryColor)) { "Cor de tema inválida" }
             require(config.isAllowedUrl(config.startUrl)) { "URL inicial não permitida" }
             require(tabs.all { config.isAllowedUrl(it.url) }) { "URL de aba não permitida" }
             // Integrações de anúncios, compras e push dependem de provedores e não são ativadas no MVP.

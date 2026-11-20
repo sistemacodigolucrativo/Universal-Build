@@ -2,6 +2,7 @@ package br.com.androidmaster.engine
 
 import android.app.DownloadManager
 import android.content.Context
+import android.content.res.Configuration
 import android.content.Intent
 import android.graphics.Color
 import android.net.ConnectivityManager
@@ -29,6 +30,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
@@ -44,6 +46,16 @@ class MainActivity : ComponentActivity() {
     private var activeTabId = ""
     private var chooserCallback: ValueCallback<Array<Uri>>? = null
     private val accent by lazy { Color.parseColor(config.primaryColor) }
+    private val darkUi by lazy {
+        when (config.themeMode) {
+            "dark" -> true
+            "light" -> false
+            else -> resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                Configuration.UI_MODE_NIGHT_YES
+        }
+    }
+    private val surface by lazy { if (darkUi) Color.rgb(15, 22, 33) else Color.WHITE }
+    private val bodyText by lazy { if (darkUi) Color.LTGRAY else Color.DKGRAY }
 
     private val filePicker = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -66,7 +78,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
+            setBackgroundColor(surface)
         }
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -131,7 +143,7 @@ class MainActivity : ComponentActivity() {
         errorPanel = TextView(this).apply {
             gravity = Gravity.CENTER
             textSize = 16f
-            setTextColor(Color.DKGRAY)
+            setTextColor(bodyText)
             setBackgroundColor(Color.WHITE)
             setPadding(dp(24), dp(24), dp(24), dp(24))
             visibility = View.GONE
@@ -144,10 +156,14 @@ class MainActivity : ComponentActivity() {
         root.addView(viewport, LinearLayout.LayoutParams(-1, 0, 1f))
         bottomRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.rgb(245, 247, 250))
+            setBackgroundColor(if (darkUi) Color.rgb(24, 32, 44) else Color.rgb(245, 247, 250))
         }
         if (config.navigation.bottomBar) root.addView(bottomRow, LinearLayout.LayoutParams(-1, dp(54)))
         setContentView(root)
+        WindowInsetsControllerCompat(window, root).apply {
+            isAppearanceLightStatusBars = !darkUi
+            isAppearanceLightNavigationBars = !darkUi
+        }
         renderNavigation()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -210,8 +226,8 @@ class MainActivity : ComponentActivity() {
         text = label
         gravity = Gravity.CENTER
         textSize = if (bar) 23f else 14f
-        setTextColor(if (bar) Color.WHITE else if (selected) accent else Color.DKGRAY)
-        if (selected && !bar) setBackgroundColor(Color.rgb(231, 238, 250))
+        setTextColor(if (bar) Color.WHITE else if (selected) accent else bodyText)
+        if (selected && !bar) setBackgroundColor(if (darkUi) Color.rgb(37, 51, 75) else Color.rgb(231, 238, 250))
         minWidth = dp(48)
         minHeight = dp(48)
         contentDescription = label
