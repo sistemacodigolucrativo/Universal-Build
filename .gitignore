@@ -1,0 +1,15 @@
+# Build
+.gradle/
+**/build/
+node_modules/
+.dart_tool/
+.flutter-plugins*
+*.apk
+*.aab
+*.jks
+*.keystore
+key.properties
+.env
+.env.*
+!.env.example
+.DS_Store
