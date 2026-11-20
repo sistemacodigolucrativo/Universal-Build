@@ -1,0 +1,33 @@
+name: Universal Build - Verificações
+on:
+  push:
+    branches:
+      - main
+      - implementation/**
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar sintaxe dos scripts
+        run: |
+          set -euo pipefail
+          bash -n scripts/detect.sh
+          bash -n scripts/build.sh
+          bash -n tests/test-detect.sh
+          python3 -m py_compile scripts/extract_zip.py
+          node --check dashboard/app.js
+      - name: Testar identificação de projeto
+        run: bash tests/test-detect.sh
+      - name: Testar extração segura de ZIP
+        run: python3 tests/test-zip.py
+      - name: Validar arquivos YAML dos workflows
+        run: |
+          python3 -m pip install --user PyYAML
+          python3 tests/check-workflows.py
