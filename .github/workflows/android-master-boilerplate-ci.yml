@@ -1,0 +1,120 @@
+name: Android Master Boilerplate - Build de Dois Apps
+
+on:
+  push:
+    branches:
+      - implementation/android-master-boilerplate
+    paths:
+      - 'android-master-boilerplate/**'
+      - '.github/workflows/android-master-boilerplate-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    name: Validar configurações e geração
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar Python e gerador
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q android-master-boilerplate/tools android-master-boilerplate/tests
+          python3 -m unittest discover -s android-master-boilerplate/tests -v
+          python3 android-master-boilerplate/tools/generate_app.py --config android-master-boilerplate/apps/portal-demo.json --output "$RUNNER_TEMP/portal-demo"
+          python3 android-master-boilerplate/tools/generate_app.py --config android-master-boilerplate/apps/second-app.json --output "$RUNNER_TEMP/second-app"
+
+  real-android-build:
+    name: Gerar APKs e AAB testáveis
+    needs: source-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gerar dois aplicativos independentes
+        run: |
+          set -euo pipefail
+          python3 android-master-boilerplate/tools/generate_app.py --config android-master-boilerplate/apps/portal-demo.json --output android-master-boilerplate/build/portal-demo
+          python3 android-master-boilerplate/tools/generate_app.py --config android-master-boilerplate/apps/second-app.json --output android-master-boilerplate/build/second-app
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Preparar Android SDK 36
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Compilar Portal Demo em APK e AAB sem assinatura
+        working-directory: android-master-boilerplate/build/portal-demo
+        run: gradle --no-daemon --stacktrace :app:assembleDebug :app:bundleRelease
+      - name: Compilar Segundo Aplicativo em APK
+        working-directory: android-master-boilerplate/build/second-app
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Conferir arquivos e package IDs
+        run: |
+          set -euo pipefail
+          test -s android-master-boilerplate/build/portal-demo/app/build/outputs/apk/debug/app-debug.apk
+          test -s android-master-boilerplate/build/portal-demo/app/build/outputs/bundle/release/app-release.aab
+          test -s android-master-boilerplate/build/second-app/app/build/outputs/apk/debug/app-debug.apk
+          grep -q 'br.com.androidmaster.portaldemo' android-master-boilerplate/build/portal-demo/gradle.properties
+          grep -q 'br.com.androidmaster.segundoapp' android-master-boilerplate/build/second-app/gradle.properties
+      - name: Validar bundle API 36 e versionCode
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar -o "$RUNNER_TEMP/bundletool.jar"
+          BUNDLE=android-master-boilerplate/build/portal-demo/app/build/outputs/bundle/release/app-release.aab
+          API="$(java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle="$BUNDLE" --xpath='/manifest/uses-sdk/@android:targetSdkVersion' | tr -dc '0-9')"
+          VERSION="$(java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle="$BUNDLE" --xpath='/manifest/@android:versionCode' | tr -dc '0-9')"
+          test "$API" -ge 36
+          test "$VERSION" -gt 0
+          echo "AAB gerado: targetSdk=$API, versionCode=$VERSION"
+      - name: Assinar AAB posteriormente com chave EFÊMERA de laboratório
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -noprompt -keyalg RSA -keysize 2048 -validity 7 \
+            -alias laboratory -keystore "$RUNNER_TEMP/lab.jks" \
+            -storepass 'TemporaryLab2026!' -keypass 'TemporaryLab2026!' \
+            -dname 'CN=Android Master Boilerplate Laboratory, O=Tests, C=BR'
+          export UB_SOURCE_AAB="$GITHUB_WORKSPACE/android-master-boilerplate/build/portal-demo/app/build/outputs/bundle/release/app-release.aab"
+          # O validador exige que a origem esteja isolada no diretório temporário.
+          cp "$UB_SOURCE_AAB" "$RUNNER_TEMP/unsigned.aab"
+          export UB_SOURCE_AAB="$RUNNER_TEMP/unsigned.aab"
+          export UB_KEYSTORE_BASE64="$(base64 -w0 "$RUNNER_TEMP/lab.jks")"
+          export UB_KEYSTORE_PASSWORD='TemporaryLab2026!'
+          export UB_KEY_ALIAS=laboratory
+          export UB_KEY_PASSWORD='TemporaryLab2026!'
+          bash scripts/sign-aab.sh
+          rm -f "$RUNNER_TEMP/lab.jks"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-Master-Portal-APK
+          path: android-master-boilerplate/build/portal-demo/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-Master-Portal-AAB-unsigned
+          path: android-master-boilerplate/build/portal-demo/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-Master-Portal-AAB-signed-laboratory
+          path: ${{ runner.temp }}/signing/release-signed.aab
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-Master-Second-App-APK
+          path: android-master-boilerplate/build/second-app/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
