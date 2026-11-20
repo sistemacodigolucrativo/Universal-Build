@@ -1,0 +1,81 @@
+name: Universal Build - Assinatura AAB (reutilizável)
+
+on:
+  workflow_call:
+    inputs:
+      source_run_id:
+        type: string
+        required: true
+      artifact_name:
+        type: string
+        required: true
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: true
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEY_ALIAS:
+        required: true
+      ANDROID_KEY_PASSWORD:
+        required: true
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  sign:
+    name: Assinar bundle sem reconstruir código-fonte
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checar entrada e assinatura
+        env:
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          ARTIFACT_NAME: ${{ inputs.artifact_name }}
+          STORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]] || { echo 'Run ID inválido'; exit 2; }
+          [[ "$ARTIFACT_NAME" =~ ^[A-Za-z0-9._-]+$ ]] || { echo 'Nome do artefato inválido'; exit 2; }
+          [[ "$ARTIFACT_NAME" == *-aab-unsigned || "$ARTIFACT_NAME" == *-both-unsigned ]] || { echo 'Selecione um artefato unsigned do Universal Build'; exit 2; }
+          for v in STORE PASS ALIAS KEY_PASS; do
+            [[ -n "${!v}" ]] || { echo 'Falta configurar os quatro secrets de assinatura no repositório do app'; exit 3; }
+          done
+      - name: Instalar Java para jarsigner
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Obter script assinado do Universal Build
+        uses: actions/checkout@v4
+        with:
+          repository: sistemacodigolucrativo/Universal-Build
+          ref: main
+          path: .ub-core
+          persist-credentials: false
+      - name: Baixar artefato do build já concluído
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.source_run_id }}
+          name: ${{ inputs.artifact_name }}
+          path: ${{ runner.temp }}/unsigned-source
+          github-token: ${{ github.token }}
+      - name: Assinar AAB com segredo isolado
+        env:
+          UB_SOURCE_AAB: ${{ runner.temp }}/unsigned-source/unsigned.aab
+          UB_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          UB_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          UB_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          UB_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bash .ub-core/scripts/sign-aab.sh
+      - name: Publicar AAB assinado para Play Console
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-${{ github.event.repository.name }}-AAB-assinado-${{ inputs.source_run_id }}
+          path: ${{ runner.temp }}/signing/release-signed.aab
+          if-no-files-found: error
+          retention-days: 14
