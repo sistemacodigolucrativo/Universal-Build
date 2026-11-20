@@ -10,7 +10,9 @@ Painel sem backend/banco de dados, para uso individual. Inclui:
 - repositórios vazios recém-criados só aparecerão depois de receber código Android compatível;
 - instalação/atualização do workflow de build;
 - upload opcional de ZIP de até 15 MiB;
-- envio de parâmetros e acionamento do GitHub Actions;
+- envio de parâmetros, incluindo flavor Android automático ou dev/staging/prod, e acionamento do GitHub Actions;
+- detecção automática do Kotlin-Master-Boilerplate (APK devDebug, release prodRelease), preservando builds sem flavors;
+- compatibilidade com as variáveis de assinatura UNIVERSAL_* e ANDROID_KEYSTORE_* nos builds assinados;
 - histórico e acesso aos APK/AAB por meio da página de execução no GitHub.
 
 ## GitHub Pages (hospedagem principal)
@@ -61,3 +63,15 @@ Hospedar os arquivos de `dashboard/` em qualquer servidor estático (por exemplo
 - AAB release é para Google Play.
 - Um AAB exige uma chave de upload válida e `targetSdk` compatível com as políticas atuais.
 - Para ZIPs maiores, será necessário usar repositório preenchido por Git ou implementar upload robusto com Git Data API.
+
+## Kotlin-Master-Boilerplate — integração de ponta a ponta
+
+1. Verifique que o projeto Kotlin está na lista Android: ele contém `settings.gradle.kts`, `app/build.gradle.kts`, `app/src/main/AndroidManifest.xml`.
+2. Selecione `Kotlin-Master-Boilerplate`. Instale/atualize os workflows universais no próprio repositório do aplicativo; eles **não** alteram o código Kotlin.
+3. Escolha `Automático`, raiz `.`, módulo `app`, Java 17 e **APK de testes**. O console chama `assembleDevDebug` e coleta apenas o artefato da variante `dev`.
+4. Para **AAB sem assinatura**, o console chama `bundleProdRelease` e coleta apenas o artefato `prod`. Para `APK + AAB unsigned`, executa ambos.
+5. O modo assinado requer os quatro `ANDROID_KEYSTORE_*` como GitHub Secrets no repositório do aplicativo. O runner adapta o contrato ao script Gradle Kotlin, sem publicar chaves.
+6. Confira os logs e artefatos da execução do workflow `Universal Build - Compilar Android` no histórico do console.
+7. Se o projeto tiver alterações específicas nos flavors, escolha `dev`, `staging` ou `prod` explicitamente; em aplicativos sem flavors, mantenha `Automático`.
+
+**Limite de evidência:** testes automatizados do script e execução do workflow reutilizável provam o pipeline; um clique autenticado no painel hospedado depende da sessão PAT do proprietário e deve ser validado no navegador Android. Sem assinatura real não é possível afirmar que AAB release assinado foi testado com a chave de upload do proprietário.

@@ -14,6 +14,9 @@ on:
       android_module:
         type: string
         default: app
+      android_flavor:
+        type: string
+        default: auto
       java_version:
         type: string
         default: '17'
@@ -115,6 +118,7 @@ jobs:
           UB_PROJECT_DIR: ${{ steps.zip.outputs.source_path }}
           UB_TARGET: ${{ inputs.build_target }}
           UB_MODULE: ${{ inputs.android_module }}
+          UB_FLAVOR: ${{ inputs.android_flavor }}
           UB_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           UB_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           UB_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}

@@ -74,6 +74,14 @@
             <input id="project-dir" value="." placeholder=". ou mobile/android">
             <label for="android-module">Módulo Android</label>
             <input id="android-module" value="app" pattern="[a-zA-Z0-9_]+" required>
+            <label for="android-flavor">Variante Android (flavor)</label>
+            <select id="android-flavor">
+              <option value="auto">Automático (Kotlin Master: APK dev / release prod)</option>
+              <option value="dev">dev</option>
+              <option value="staging">staging</option>
+              <option value="prod">prod</option>
+            </select>
+            <p class="small">Automático preserva builds Android sem flavors. Para Kotlin Master escolhe devDebug para APK de teste e prodRelease para AAB/release.</p>
             <div class="two">
               <div><label for="java-version">Java</label><select id="java-version"><option value="17">17</option><option value="21">21</option></select></div>
               <div><label for="node-version">Node.js</label><select id="node-version"><option value="20">20</option><option value="22">22</option></select></div>

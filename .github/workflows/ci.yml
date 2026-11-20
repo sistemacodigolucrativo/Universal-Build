@@ -24,13 +24,16 @@ jobs:
           bash -n scripts/build.sh
           bash -n scripts/sign-aab.sh
           bash -n tests/test-detect.sh
+          bash -n tests/test-build-flavors.sh
           python3 -m py_compile scripts/extract_zip.py
           node --check dashboard/app.js
           node --check dashboard/android-repos.js
       - name: Testar filtro de repositórios Android
-        run: node --test tests/android-repos.test.cjs
+        run: node --test tests/android-repos.test.cjs tests/test-console-build-config.cjs
       - name: Testar identificação de projeto
         run: bash tests/test-detect.sh
+      - name: Validar builds por flavor e integração de assinatura
+        run: bash tests/test-build-flavors.sh
       - name: Testar extração segura de ZIP
         run: python3 tests/test-zip.py
       - name: Validar arquivos YAML dos workflows

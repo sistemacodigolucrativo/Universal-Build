@@ -364,6 +364,7 @@
         build_target: $("build-target").value,
         project_dir: $("project-dir").value.trim() || ".",
         android_module: $("android-module").value.trim() || "app",
+        android_flavor: $("android-flavor").value,
         java_version: $("java-version").value,
         node_version: $("node-version").value,
         flutter_version: $("flutter-version").value.trim(),
