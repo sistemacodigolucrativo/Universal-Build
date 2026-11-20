@@ -1,0 +1,30 @@
+# Instalar em: .github/workflows/universal-sign.yml de CADA repositório de app.
+name: Universal Build - Assinar AAB após compilação
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'ID da execução que gerou AAB unsigned'
+        type: string
+        required: true
+      artifact_name:
+        description: 'Nome do artefato unsigned (obtido em Artifacts)'
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  sign:
+    uses: sistemacodigolucrativo/Universal-Build/.github/workflows/sign-reusable.yml@main
+    with:
+      source_run_id: ${{ inputs.source_run_id }}
+      artifact_name: ${{ inputs.artifact_name }}
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
