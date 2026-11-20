@@ -169,9 +169,11 @@
     $("install-btn").disabled = !active;
     $("run-btn").disabled = !active;
     $("refresh-runs").disabled = !active;
+    $("sign-btn").disabled = !active;
     $("open-repo").hidden = !active;
     if (active) {
       $("open-repo").href = "https://github.com/" + state.repo.full_name;
+      $("secrets-link").href = "https://github.com/" + state.repo.full_name + "/settings/secrets/actions";
       refreshRuns();
     } else {
       $("run-list").replaceChildren();
@@ -196,8 +198,8 @@
       notice("Repositório criado: " + repo.full_name);
     } catch (err) { notice(err.message + ". Se o token não permitir criação, crie o repositório pelo site GitHub.", true); }
   }
-  async function template() {
-    const path = "/repos/" + CORE + "/contents/templates/android-build.yml?ref=main";
+  async function template(file = "android-build.yml") {
+    const path = "/repos/" + CORE + "/contents/templates/" + file + "?ref=main";
     return decodeGitHubFile(await api(path));
   }
   async function ensureWorkflow(force) {
@@ -216,13 +218,56 @@
     await api(path, { method: "PUT", body: JSON.stringify(body) });
     return true;
   }
+  async function ensureSignWorkflow(force = false) {
+    const repo = selected();
+    const path = repoPath(repo) + "/contents/.github/workflows/universal-sign.yml";
+    let existing = null;
+    try { existing = await api(path + "?ref=" + encodeURIComponent(repo.default_branch)); }
+    catch (e) { if (e.status !== 404) throw e; }
+    if (existing && !force) return false;
+    const yml = await template("android-sign.yml");
+    const body = {
+      message: (existing ? "ci: atualizar" : "ci: instalar") + " workflow de assinatura Universal Build",
+      content: utf8Base64(yml), branch: repo.default_branch
+    };
+    if (existing) body.sha = existing.sha;
+    await api(path, { method: "PUT", body: JSON.stringify(body) });
+    return true;
+  }
   async function installWorkflow() {
     const btn = $("install-btn");
     btn.disabled = true;
-    notice("Instalando workflow reutilizável no repositório selecionado...");
+    if (!confirm("Instalar ou sobrescrever os dois workflows do Universal Build neste repositório?")) {
+      btn.disabled = !state.repo;
+      return;
+    }
+    notice("Instalando os workflows de compilação e assinatura...");
     try {
-      const changed = await ensureWorkflow(true);
-      notice(changed ? "Workflow instalado/atualizado. A ativação pode levar alguns segundos no GitHub." : "Workflow existente.");
+      await ensureWorkflow(true);
+      await ensureSignWorkflow(true);
+      notice("Workflows instalados/atualizados. A ativação pode levar alguns segundos.");
+    } catch (err) { notice(err.message, true); }
+    finally { btn.disabled = !state.repo; }
+  }
+  async function signBuild(ev) {
+    ev.preventDefault();
+    const btn = $("sign-btn");
+    btn.disabled = true;
+    try {
+      const repo = selected();
+      const runId = $("sign-run-id").value.trim();
+      const name = $("sign-artifact").value.trim();
+      if (!/^[0-9]+$/.test(runId) || !/^[A-Za-z0-9._-]+$/.test(name) || !/-aab-unsigned$|-both-unsigned$/.test(name)) {
+        throw new Error("Informe o Run ID e o nome de um artefato AAB unsigned criado pelo Universal Build.");
+      }
+      notice("Verificando workflow de assinatura...");
+      await ensureSignWorkflow(false);
+      await api(repoPath(repo) + "/actions/workflows/universal-sign.yml/dispatches", {
+        method: "POST",
+        body: JSON.stringify({ ref: repo.default_branch, inputs: { source_run_id: runId, artifact_name: name } })
+      });
+      notice("Assinatura solicitada! Acompanhe o processo no histórico. A chave de upload deve estar configurada nos Secrets do aplicativo.");
+      await refreshRuns();
     } catch (err) { notice(err.message, true); }
     finally { btn.disabled = !state.repo; }
   }
@@ -345,6 +390,7 @@
   $("new-repo-form").addEventListener("submit", createRepo);
   $("install-btn").addEventListener("click", installWorkflow);
   $("build-form").addEventListener("submit", runBuild);
+  $("sign-form").addEventListener("submit", signBuild);
   $("refresh-runs").addEventListener("click", refreshRuns);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) isSessionValid();
