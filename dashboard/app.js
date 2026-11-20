@@ -8,6 +8,7 @@
   const STORAGE = "ub-session-v1";
   const MAX_ZIP = 15 * 1024 * 1024;
   const state = { token: "", login: "", expires: 0, repos: [], repo: null };
+  let repoScanId = 0;
   const $ = (id) => document.getElementById(id);
 
   function notice(message, error = false) {
@@ -26,6 +27,8 @@
     state.login = "";
     state.expires = 0;
     state.repo = null;
+    state.repos = [];
+    repoScanId++;
     localStorage.removeItem(STORAGE);
     $("token").value = "";
     $("app-view").hidden = true;
@@ -139,20 +142,64 @@
       notice("Não foi possível restaurar a conexão. Faça login novamente.", true);
     }
   }
+  // Uma consulta ao GitHub por repositório é necessária: nome/linguagem não provam que existe app Android.
+  // O limite de simultaneidade impede sobrecarga e permite avisar sobre verificações incompletas.
   async function loadRepos(preferred = "") {
     if (!isSessionValid()) return;
-    notice("Carregando repositórios...");
+    const requestId = ++repoScanId;
+    const select = $("repo-select");
+    const selectedName = preferred || select.value || (state.repo && state.repo.full_name);
+    select.disabled = true;
+    select.replaceChildren(new Option("Verificando projetos Android...", ""));
+    state.repos = [];
+    selectRepo();
+    notice("Localizando repositórios e verificando a estrutura Android...");
     try {
       const all = [];
       for (let page = 1; page <= 5; page++) {
         const data = await api("/user/repos?affiliation=owner&sort=updated&per_page=100&page=" + page);
+        if (requestId !== repoScanId) return;
+        if (!Array.isArray(data)) throw new Error("Resposta inválida ao listar repositórios.");
         all.push(...data);
         if (data.length < 100) break;
       }
-      state.repos = all.filter((r) => r.permissions && r.permissions.push);
-      const select = $("repo-select");
-      const selectedName = preferred || (state.repo && state.repo.full_name);
-      select.replaceChildren(new Option("Selecione um repositório", ""));
+      const candidates = all.filter((r) =>
+        r.permissions && r.permissions.push && !r.archived && !r.disabled &&
+        r.full_name !== CORE && r.default_branch
+      );
+      const androidRepos = [];
+      let next = 0;
+      let checked = 0;
+      let unknown = 0;
+      let interrupted = null;
+      async function worker() {
+        while (requestId === repoScanId && next < candidates.length && !interrupted) {
+          const repo = candidates[next++];
+          try {
+            const tree = await api(repoPath(repo) + "/git/trees/" +
+              encodeURIComponent(repo.default_branch) + "?recursive=1");
+            if (requestId !== repoScanId) return;
+            const classification = window.AndroidRepoFilter.classifyTree(tree);
+            if (classification === true) androidRepos.push(repo);
+            if (classification === null) unknown++;
+          } catch (err) {
+            if (requestId !== repoScanId) return;
+            unknown++;
+            if ([401, 403, 429].includes(err.status)) interrupted = err;
+          } finally {
+            checked++;
+            if (requestId === repoScanId && (checked % 10 === 0 || checked === candidates.length)) {
+              notice("Analisando projetos Android: " + checked + "/" + candidates.length +
+                " · identificados: " + androidRepos.length);
+            }
+          }
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(8, candidates.length) }, () => worker()));
+      if (requestId !== repoScanId) return;
+      state.repos = androidRepos.sort((a, b) => a.full_name.localeCompare(b.full_name));
+      select.replaceChildren(new Option(state.repos.length ?
+        "Selecione um projeto Android" : "Nenhum projeto Android identificado", ""));
       for (const r of state.repos) {
         select.add(new Option(r.full_name + (r.private ? " · privado" : ""), r.full_name));
       }
@@ -160,8 +207,17 @@
         select.value = selectedName;
       }
       selectRepo();
-      notice("Repositórios atualizados.");
-    } catch (err) { notice(err.message, true); }
+      const partial = !!interrupted || unknown > 0;
+      notice(state.repos.length + " projeto(s) Android identificado(s) entre " +
+        candidates.length + " repositório(s) analisáveis." +
+        (partial ? " " + unknown + " não puderam ser confirmados." : "") +
+        (interrupted ? " Verificação interrompida: " + interrupted.message : ""),
+        partial);
+    } catch (err) {
+      if (requestId === repoScanId) notice("Não foi possível verificar os projetos Android: " + err.message, true);
+    } finally {
+      if (requestId === repoScanId) select.disabled = false;
+    }
   }
   function selectRepo() {
     state.repo = state.repos.find((r) => r.full_name === $("repo-select").value) || null;
@@ -195,7 +251,7 @@
         body: JSON.stringify({ name, private: isPrivate, auto_init: true, description: "Projeto Android gerenciado pelo Universal Build" })
       });
       await loadRepos(repo.full_name);
-      notice("Repositório criado: " + repo.full_name);
+      notice("Repositório criado: " + repo.full_name + ". Ele aparecerá na lista após receber um projeto Android válido.");
     } catch (err) { notice(err.message + ". Se o token não permitir criação, crie o repositório pelo site GitHub.", true); }
   }
   async function template(file = "android-build.yml") {

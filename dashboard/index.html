@@ -8,6 +8,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://api.github.com; script-src 'self'; style-src 'self'; img-src 'self' https://avatars.githubusercontent.com; object-src 'none'; base-uri 'none'">
   <title>Universal Build · Android</title>
   <link rel="stylesheet" href="./style.css">
+  <script defer src="./android-repos.js"></script>
   <script defer src="./app.js"></script>
 </head>
 <body>
@@ -38,9 +39,9 @@
       <div class="columns">
         <section class="panel">
           <h2>1 · Repositório</h2>
-          <p>Selecione um projeto existente ou crie um novo repositório.</p>
+          <p>A lista exibe somente repositórios com estrutura Android verificável (Gradle e AndroidManifest.xml). Projetos apenas web não aparecem.</p>
           <label for="repo-select">Projetos disponíveis</label>
-          <select id="repo-select"><option value="">Selecione um repositório</option></select>
+          <select id="repo-select"><option value="">Selecione um projeto Android</option></select>
           <div class="inline"><button id="refresh-repos" class="secondary">Atualizar lista</button><a id="open-repo" href="#" target="_blank" rel="noopener noreferrer" hidden>Ver no GitHub ↗</a></div>
           <hr>
           <details>
