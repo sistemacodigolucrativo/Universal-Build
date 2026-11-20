@@ -34,6 +34,11 @@ if [[ "$want_release" == true && "$UB_TARGET" != aab-unsigned && "$UB_TARGET" !=
   export UNIVERSAL_KEY_PASSWORD="$UB_KEY_PASSWORD"
   printf '%s' "$UB_KEYSTORE_BASE64" | base64 --decode > "$UNIVERSAL_STORE_FILE"
   chmod 600 "$UNIVERSAL_STORE_FILE"
+  # Suportar os dois contratos: Universal-Build legado e app Kotlin/Compose.
+  export ANDROID_KEYSTORE_PATH="$UNIVERSAL_STORE_FILE"
+  export ANDROID_KEYSTORE_PASSWORD="$UNIVERSAL_STORE_PASSWORD"
+  export ANDROID_KEY_ALIAS="$UNIVERSAL_KEY_ALIAS"
+  export ANDROID_KEY_PASSWORD="$UNIVERSAL_KEY_PASSWORD"
   # Compatibilidade com projetos Flutter que já leem android/key.properties.
   if [[ "$UB_KIND" == flutter ]]; then
     cat > "$project/android/key.properties" <<KEYS
@@ -69,6 +74,43 @@ install_js_deps() {
     npm install
   fi
 }
+# Gradle sem flavors permanece inalterado. O Kotlin Master define dev/staging/prod
+# e, no modo automático, gera debug em dev e release em prod.
+gradle_debug_task=assembleDebug
+gradle_release_bundle_task=bundleRelease
+gradle_release_apk_task=assembleRelease
+gradle_debug_dir=apk/debug
+gradle_release_bundle_dir=bundle/release
+gradle_release_apk_dir=apk/release
+
+resolve_gradle_variant() {
+  local android_dir="$1" choice="${UB_FLAVOR:-auto}" build_file
+  case "$choice" in auto|dev|staging|prod) ;; *) echo "Flavor inválido: $choice" >&2; exit 2;; esac
+  local debug_flavor="" release_flavor=""
+  if [[ "$choice" != auto ]]; then
+    debug_flavor="$choice"
+    release_flavor="$choice"
+  else
+    build_file="$android_dir/$UB_MODULE/build.gradle.kts"
+    if [[ -f "$android_dir/app-config.properties" && -f "$build_file" ]] &&
+       grep -Fq 'create("dev")' "$build_file" &&
+       grep -Fq 'create("prod")' "$build_file"; then
+      debug_flavor=dev
+      release_flavor=prod
+      echo "Kotlin Master: flavors automáticos (APK devDebug; AAB/release prodRelease)"
+    fi
+  fi
+  if [[ -n "$debug_flavor" ]]; then
+    local debug_cap="${debug_flavor^}" release_cap="${release_flavor^}"
+    gradle_debug_task="assemble${debug_cap}Debug"
+    gradle_release_bundle_task="bundle${release_cap}Release"
+    gradle_release_apk_task="assemble${release_cap}Release"
+    gradle_debug_dir="apk/$debug_flavor/debug"
+    gradle_release_bundle_dir="bundle/${release_flavor}Release"
+    gradle_release_apk_dir="apk/$release_flavor/release"
+  fi
+}
+
 case "$UB_KIND" in
   flutter)
     cd "$project"
@@ -86,10 +128,11 @@ case "$UB_KIND" in
       install_js_deps
       android_dir="$project/android"
     fi
-    if [[ "$want_apk" == true ]]; then gradle_build "$android_dir" assembleDebug; fi
+    resolve_gradle_variant "$android_dir"
+    if [[ "$want_apk" == true ]]; then gradle_build "$android_dir" "$gradle_debug_task"; fi
     if [[ "$want_release" == true ]]; then
-      if [[ "$UB_TARGET" == release-apk ]]; then gradle_build "$android_dir" assembleRelease
-      else gradle_build "$android_dir" bundleRelease; fi
+      if [[ "$UB_TARGET" == release-apk ]]; then gradle_build "$android_dir" "$gradle_release_apk_task"
+      else gradle_build "$android_dir" "$gradle_release_bundle_task"; fi
     fi
     outputs="$android_dir/$UB_MODULE/build/outputs"
     ;;
@@ -97,9 +140,10 @@ case "$UB_KIND" in
 esac
 
 copy_result() {
-  local pattern="$1" name="$2" path
-  path="$(find "$outputs" -type f -name "$pattern" -print -quit 2>/dev/null || true)"
-  [[ -n "$path" && -s "$path" ]] || { echo "Arquivo esperado não produzido: $pattern (em $outputs)" >&2; exit 4; }
+  local pattern="$1" name="$2" path directory="$outputs"
+  [[ -z "${3:-}" ]] || directory="$outputs/$3"
+  path="$(find "$directory" -type f -name "$pattern" -print -quit 2>/dev/null || true)"
+  [[ -n "$path" && -s "$path" ]] || { echo "Arquivo esperado não produzido: $pattern (em $directory)" >&2; exit 4; }
   if [[ "$name" == *.aab || "$name" == unsigned.aab ]]; then
     if [[ "$name" == unsigned.aab ]]; then
       local unsigned_report
@@ -145,11 +189,18 @@ copy_result() {
   cp "$path" "$out/$name"
   echo "Arquivo produzido: $name"
 }
-if [[ "$want_apk" == true ]]; then copy_result '*-debug.apk' debug.apk; fi
+# Seleção exata por variante: não capturar outro flavor por ordem arbitrária do find.
+result_debug_dir="" result_release_bundle_dir="" result_release_apk_dir=""
+if [[ "$UB_KIND" != flutter ]]; then
+  result_debug_dir="$gradle_debug_dir"
+  result_release_bundle_dir="$gradle_release_bundle_dir"
+  result_release_apk_dir="$gradle_release_apk_dir"
+fi
+if [[ "$want_apk" == true ]]; then copy_result '*-debug.apk' debug.apk "$result_debug_dir"; fi
 if [[ "$want_release" == true ]]; then
-  if [[ "$UB_TARGET" == release-apk ]]; then copy_result '*-release.apk' release.apk
-  elif [[ "$UB_TARGET" == aab-unsigned || "$UB_TARGET" == both-unsigned ]]; then copy_result '*.aab' unsigned.aab
-  else copy_result '*.aab' release.aab; fi
+  if [[ "$UB_TARGET" == release-apk ]]; then copy_result '*-release.apk' release.apk "$result_release_apk_dir"
+  elif [[ "$UB_TARGET" == aab-unsigned || "$UB_TARGET" == both-unsigned ]]; then copy_result '*.aab' unsigned.aab "$result_release_bundle_dir"
+  else copy_result '*.aab' release.aab "$result_release_bundle_dir"; fi
 fi
 # Credenciais não são carregadas nos artefatos.
 if [[ -n "${UNIVERSAL_STORE_FILE:-}" ]]; then rm -f "$UNIVERSAL_STORE_FILE"; fi
