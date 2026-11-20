@@ -9,5 +9,21 @@ android {
         versionCode 1
         versionName '1.0.0'
     }
-    buildTypes { release { minifyEnabled false } }
+    signingConfigs {
+        universalRelease {
+            def keystore = System.getenv('UNIVERSAL_STORE_FILE')
+            if (keystore) {
+                storeFile file(keystore)
+                storePassword System.getenv('UNIVERSAL_STORE_PASSWORD')
+                keyAlias System.getenv('UNIVERSAL_KEY_ALIAS')
+                keyPassword System.getenv('UNIVERSAL_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.universalRelease
+        }
+    }
 }
