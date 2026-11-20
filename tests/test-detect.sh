@@ -4,7 +4,7 @@ base="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/native" "$tmp/flutter" "$tmp/rn/android"
-touch "$tmp/native/settings.gradle" "$tmp/native/gradlew"
+touch "$tmp/native/settings.gradle" "$tmp/native/build.gradle" "$tmp/native/gradlew"
 printf 'dependencies:\n  flutter:\n    sdk: flutter\n' > "$tmp/flutter/pubspec.yaml"
 printf '{"dependencies":{"react-native":"0.76.0"}}' > "$tmp/rn/package.json"
 touch "$tmp/rn/android/settings.gradle"
