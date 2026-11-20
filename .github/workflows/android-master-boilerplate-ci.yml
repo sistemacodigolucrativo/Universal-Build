@@ -94,6 +94,17 @@ jobs:
           export UB_KEY_PASSWORD='TemporaryLab2026!'
           bash scripts/sign-aab.sh
           rm -f "$RUNNER_TEMP/lab.jks"
+      - name: Empacotar código-fonte completo sem arquivos gerados
+        run: |
+          set -euo pipefail
+          (cd android-master-boilerplate && zip -q -r "$RUNNER_TEMP/Android-Master-Boilerplate-source.zip" README.md apps tools tests docs template .github -x '*/__pycache__/*' '*.pyc')
+          test -s "$RUNNER_TEMP/Android-Master-Boilerplate-source.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-Master-Boilerplate-Full-Source
+          path: ${{ runner.temp }}/Android-Master-Boilerplate-source.zip
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: Android-Master-Portal-APK
