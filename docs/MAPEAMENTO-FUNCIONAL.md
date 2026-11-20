@@ -20,8 +20,8 @@ Painel pessoal de compilação Android, acessível por celular, hospedado em Git
 | Projeto | Identificar Android Gradle, Flutter, React Native | Implementado; apenas Android nativo testado em execução real |
 | Build | APK debug (instalável) | Teste real aprovado |
 | Build | AAB release assinado no build | Teste real aprovado |
-| Build | AAB unsigned e APK + AAB unsigned | Implementado; smoke test em andamento |
-| Assinatura | Workflow de assinatura posterior ao build | Implementado; teste com chaves efêmeras em andamento |
+| Build | AAB unsigned e APK + AAB unsigned | Implementado; smoke test real de AAB unsigned e pós-assinatura aprovado em 20/11/2026 |
+| Assinatura | Workflow de assinatura posterior ao build | Implementado; script assina em fase separada, validado com chave efêmera em 20/11/2026 |
 | Play Store | Verificar assinatura, API 36 e versionCode | Implementado para AAB; não cobre todas as políticas |
 | Histórico | Builds, status, logs via GitHub e artefatos | Implementado; teste da UI pendente |
 | Histórico | Atualização do status a cada 30 s | Implementado |
