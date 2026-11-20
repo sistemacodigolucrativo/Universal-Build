@@ -1,0 +1,58 @@
+name: Android Master Boilerplate - CI independente
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar validações e gerador
+        run: |
+          python3 -m compileall -q tools tests
+          python3 -m unittest discover -s tests -v
+          python3 tools/generate_app.py --config apps/portal-demo.json --output build/portal-demo
+          python3 tools/generate_app.py --config apps/second-app.json --output build/second-app
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Preparar SDK 36
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Compilar dois APKs e AAB intermediário
+        run: |
+          set -euo pipefail
+          (cd build/portal-demo && gradle --no-daemon :app:assembleDebug :app:bundleRelease)
+          (cd build/second-app && gradle --no-daemon :app:assembleDebug)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Portal-Demo-APK
+          path: build/portal-demo/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Portal-Demo-AAB-sem-assinatura
+          path: build/portal-demo/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Segundo-App-APK
+          path: build/second-app/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

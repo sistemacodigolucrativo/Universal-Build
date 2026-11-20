@@ -1,0 +1,108 @@
+name: Universal Build - Compilar Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_target:
+        type: choice
+        required: true
+        default: apk
+        options: [apk, aab-unsigned, both-unsigned, aab, both, release-apk]
+      app_id:
+        description: 'Arquivo apps/<app_id>.json (padrão portal-demo)'
+        type: string
+        default: portal-demo
+      project_dir:
+        description: 'Pasta de projeto Android já gerado (padrão . = gerar pelo app_id)'
+        type: string
+        default: '.'
+      upload_zip_path:
+        type: string
+        default: ''
+      android_module:
+        type: string
+        default: app
+      java_version:
+        type: string
+        default: '17'
+      node_version:
+        type: string
+        default: '20'
+      flutter_version:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Obter motor central
+        uses: actions/checkout@v4
+        with:
+          repository: sistemacodigolucrativo/Universal-Build
+          ref: main
+          path: .ub-core
+          persist-credentials: false
+      - name: Preparar projeto
+        id: input
+        env:
+          ID: ${{ inputs.app_id }}
+          PROJECT_DIR: ${{ inputs.project_dir }}
+          UPLOAD_ZIP_PATH: ${{ inputs.upload_zip_path }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$UPLOAD_ZIP_PATH" ]]; then
+            [[ "$UPLOAD_ZIP_PATH" =~ ^uploads/[a-zA-Z0-9._-]+\.zip$ ]] || exit 2
+            source="$(python3 .ub-core/scripts/extract_zip.py "$UPLOAD_ZIP_PATH" .ub-upload)"
+          elif [[ "$PROJECT_DIR" != '.' ]]; then
+            source="$PROJECT_DIR"
+          else
+            [[ "$ID" =~ ^[a-z][a-z0-9-]{2,55}$ ]] || exit 2
+            source="build/generated/$ID"
+            python3 tools/generate_app.py --config "apps/$ID.json" --output "$source"
+          fi
+          echo "source=$source" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
+      - name: Preparar Android SDK
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Identificar tecnologia
+        id: kind
+        env:
+          SOURCE: ${{ steps.input.outputs.source }}
+        run: echo "value=$(bash .ub-core/scripts/detect.sh "$SOURCE")" >> "$GITHUB_OUTPUT"
+      - name: Compilar APK/AAB e verificar integridade
+        env:
+          UB_KIND: ${{ steps.kind.outputs.value }}
+          UB_PROJECT_DIR: ${{ steps.input.outputs.source }}
+          UB_TARGET: ${{ inputs.build_target }}
+          UB_MODULE: ${{ inputs.android_module }}
+          UB_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          UB_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          UB_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          UB_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bash .ub-core/scripts/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-${{ github.event.repository.name }}-${{ github.run_number }}-${{ inputs.build_target }}
+          path: ${{ runner.temp }}/ub-artifacts/*
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,29 @@
+name: Universal Build - Assinar AAB após compilação
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Run ID que gerou AAB sem assinatura'
+        type: string
+        required: true
+      artifact_name:
+        description: 'Nome do artefato AAB unsigned'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  sign:
+    uses: sistemacodigolucrativo/Universal-Build/.github/workflows/sign-reusable.yml@main
+    with:
+      source_run_id: ${{ inputs.source_run_id }}
+      artifact_name: ${{ inputs.artifact_name }}
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
