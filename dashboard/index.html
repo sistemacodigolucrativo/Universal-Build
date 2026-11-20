@@ -54,8 +54,8 @@
             </form>
           </details>
           <hr>
-          <button id="install-btn" class="secondary wide" disabled>Instalar ou atualizar workflow do projeto</button>
-          <p class="small">Esta ação adiciona o arquivo <code>.github/workflows/universal-build.yml</code> no repositório selecionado. Não altera o código do aplicativo.</p>
+          <button id="install-btn" class="secondary wide" disabled>Instalar ou atualizar workflows do projeto</button>
+          <p class="small">Esta ação instala os workflows <code>universal-build.yml</code> e <code>universal-sign.yml</code> no repositório selecionado. Não altera o código do aplicativo.</p>
         </section>
         <section class="panel">
           <h2>2 · Configurar compilação</h2>
@@ -63,8 +63,10 @@
             <label for="build-target">Tipo de build</label>
             <select id="build-target">
               <option value="apk">APK de testes (debug)</option>
-              <option value="both">APK de testes + AAB de distribuição</option>
-              <option value="aab">AAB de distribuição (release)</option>
+              <option value="both-unsigned">APK de testes + AAB sem assinatura (assinar depois)</option>
+              <option value="aab-unsigned">AAB sem assinatura (assinar depois)</option>
+              <option value="both">APK de testes + AAB assinado (exige secrets)</option>
+              <option value="aab">AAB release assinado (exige secrets)</option>
               <option value="release-apk">APK de distribuição (release)</option>
             </select>
             <label for="project-dir">Pasta do projeto</label>
@@ -86,7 +88,22 @@
         </section>
       </div>
       <section class="panel history">
-        <div class="inline space"><div><h2>3 · Compilações recentes</h2><p>Acompanhe os resultados e abra os artefatos no GitHub.</p></div><button id="refresh-runs" class="secondary" disabled>Atualizar</button></div>
+        <h2>3 · Assinar AAB depois do build</h2>
+        <p>O AAB é compilado sem chave e a assinatura acontece em uma execução independente, usando os segredos protegidos do repositório do aplicativo.</p>
+        <form id="sign-form">
+          <div class="two">
+            <div><label for="sign-run-id">Número da execução (Run ID)</label><input id="sign-run-id" required inputmode="numeric" pattern="[0-9]+" placeholder="Ex.: 44784533268"></div>
+            <div><label for="sign-artifact">Nome do artefato unsigned</label><input id="sign-artifact" required pattern="[A-Za-z0-9._-]+" placeholder="Android-app-12-aab-unsigned"></div>
+          </div>
+          <div class="inline">
+            <button id="sign-btn" type="submit" class="primary" disabled>Assinar AAB na nuvem</button>
+            <a id="secrets-link" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">Configurar secrets no repositório ↗</a>
+          </div>
+          <p class="small">Antes do primeiro AAB real, cadastre ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS e ANDROID_KEY_PASSWORD em Settings → Secrets and variables → Actions do aplicativo. Nunca os informe neste painel.</p>
+        </form>
+      </section>
+      <section class="panel history">
+        <div class="inline space"><div><h2>4 · Compilações e assinaturas recentes</h2><p>Acompanhe os resultados e abra os artefatos no GitHub.</p></div><button id="refresh-runs" class="secondary" disabled>Atualizar</button></div>
         <div id="run-list" class="run-list"><p class="small">Selecione um repositório para visualizar o histórico.</p></div>
       </section>
       <footer>Universal Build · Serviço estático, sem banco de dados e sem servidor próprio. Compilações executadas no GitHub Actions.</footer>
