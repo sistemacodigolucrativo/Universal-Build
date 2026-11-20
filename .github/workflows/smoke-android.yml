@@ -4,6 +4,8 @@ on:
     branches:
       - main
       - implementation/**
+      - feat/**
+      - fix/**
     paths:
       - "samples/android-native/**"
       - "scripts/detect.sh"
