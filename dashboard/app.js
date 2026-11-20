@@ -340,46 +340,87 @@
     const repo = state.repo;
     const list = $("run-list");
     list.replaceChildren();
-    const p = document.createElement("p");
-    p.className = "small";
-    p.textContent = "Buscando execuções...";
-    list.append(p);
+    const waiting = document.createElement("p");
+    waiting.className = "small";
+    waiting.textContent = "Consultando builds e assinaturas no GitHub...";
+    list.append(waiting);
     try {
-      const result = await api(repoPath(repo) + "/actions/workflows/universal-build.yml/runs?per_page=10");
+      const workflows = ["universal-build.yml", "universal-sign.yml"];
+      const groups = await Promise.all(workflows.map(async (workflow) => {
+        try {
+          const response = await api(repoPath(repo) + "/actions/workflows/" + workflow + "/runs?per_page=12");
+          return response.workflow_runs || [];
+        } catch (err) {
+          if (err.status === 404) return [];
+          throw err;
+        }
+      }));
       if (!state.repo || state.repo.full_name !== repo.full_name) return;
+      const runs = groups.flat().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 15);
       list.replaceChildren();
-      if (!result.workflow_runs.length) {
-        p.textContent = "Ainda não há builds nesse repositório.";
-        list.append(p);
+      if (!runs.length) {
+        waiting.textContent = "Ainda não há compilações. Instale os workflows e inicie o primeiro build.";
+        list.append(waiting);
         return;
       }
-      for (const run of result.workflow_runs) {
+      for (const run of runs) {
+        const isSign = run.path && run.path.endsWith("/universal-sign.yml");
         const row = document.createElement("div");
         row.className = "run";
-        const text = document.createElement("div");
+        const details = document.createElement("div");
+        details.className = "run-details";
         const title = document.createElement("div");
         title.className = "run-title";
-        title.textContent = "Build #" + run.run_number + " · " + run.head_branch;
+        title.textContent = (isSign ? "Assinatura" : "Build") + " #" + run.run_number + " · " + run.head_branch;
         const meta = document.createElement("div");
         meta.className = "run-meta";
-        meta.textContent = new Date(run.created_at).toLocaleString("pt-BR") + " · " + (run.display_title || "Android");
+        meta.textContent = new Date(run.created_at).toLocaleString("pt-BR") + " · Run ID: " + run.id;
         const link = document.createElement("a");
         link.href = "https://github.com/" + repo.full_name + "/actions/runs/" + run.id;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
-        link.textContent = "Ver build e baixar ↗";
-        text.append(title, meta, link);
+        link.textContent = "Ver logs e baixar artefatos ↗";
+        details.append(title, meta, link);
         const status = document.createElement("span");
-        const s = run.conclusion || run.status;
-        status.className = "state " + (s === "success" ? "success" : s === "failure" ? "failure" : "");
-        status.textContent = ({ success: "Sucesso", failure: "Falha", in_progress: "Executando", queued: "Na fila", cancelled: "Cancelado" })[s] || s;
-        row.append(text, status);
+        const st = run.conclusion || run.status;
+        status.className = "state " + (st === "success" ? "success" : st === "failure" ? "failure" : "");
+        status.textContent = ({ success: "Concluído", failure: "Falha", in_progress: "Executando", queued: "Na fila", cancelled: "Cancelado" })[st] || st;
+        row.append(details, status);
         list.append(row);
+        if (st === "success") {
+          try {
+            const artifacts = await api(repoPath(repo) + "/actions/runs/" + run.id + "/artifacts?per_page=30");
+            if (!state.repo || state.repo.full_name !== repo.full_name) return;
+            for (const artifact of artifacts.artifacts || []) {
+              const artifactLine = document.createElement("div");
+              artifactLine.className = "artifact-line";
+              const label = document.createElement("span");
+              label.textContent = "📦 " + artifact.name + (artifact.expired ? " (expirado)" : "");
+              artifactLine.append(label);
+              if (!artifact.expired && !isSign && (artifact.name.endsWith("-aab-unsigned") || artifact.name.endsWith("-both-unsigned"))) {
+                const signBtn = document.createElement("button");
+                signBtn.type = "button";
+                signBtn.className = "secondary";
+                signBtn.textContent = "Assinar este AAB";
+                signBtn.addEventListener("click", () => {
+                  $("sign-run-id").value = String(run.id);
+                  $("sign-artifact").value = artifact.name;
+                  $("sign-form").scrollIntoView({ behavior: "smooth", block: "center" });
+                  notice("AAB selecionado. Clique em Assinar AAB na nuvem.");
+                });
+                artifactLine.append(signBtn);
+              }
+              details.append(artifactLine);
+            }
+          } catch (_) {
+            // A ausência de permissão para listar artefatos não impede abrir a execução.
+          }
+        }
       }
     } catch (err) {
       list.replaceChildren();
-      p.textContent = "Histórico indisponível: " + err.message;
-      list.append(p);
+      waiting.textContent = "Histórico indisponível: " + err.message;
+      list.append(waiting);
     }
   }
 
@@ -395,5 +436,9 @@
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) isSessionValid();
   });
+  // Atualização discreta enquanto o painel está em primeiro plano.
+  window.setInterval(() => {
+    if (!document.hidden && state.repo && isSessionValid()) refreshRuns();
+  }, 30000);
   restore();
 })();
