@@ -100,7 +100,15 @@ copy_result() {
   path="$(find "$outputs" -type f -name "$pattern" -print -quit 2>/dev/null || true)"
   [[ -n "$path" && -s "$path" ]] || { echo "Arquivo esperado não produzido: $pattern (em $outputs)" >&2; exit 4; }
   if [[ "$name" == *.aab ]]; then
-    jarsigner -verify -strict "$path" >/dev/null || { echo "AAB não possui assinatura verificável" >&2; exit 4; }
+    # -strict falha com certificados autoassinados de upload, que são válidos para Play App Signing.
+    # Confirmar o texto de verificação evita falsos positivos em arquivos sem assinatura.
+    local signature_report
+    signature_report="$(jarsigner -verify "$path" 2>&1)" || {
+      echo "AAB com assinatura inválida: $signature_report" >&2; exit 4
+    }
+    [[ "$signature_report" == *"jar verified"* ]] || {
+      echo "AAB sem assinatura verificável: $signature_report" >&2; exit 4
+    }
     # Para novos apps Android mobile, Google Play exige API de destino >= 36 desde agosto/2026.
     # Validação no manifesto compilado, não apenas no build.gradle original.
     local bundletool="$RUNNER_TEMP/bundletool-all-1.18.3.jar" required_api=36 target_api version_code
