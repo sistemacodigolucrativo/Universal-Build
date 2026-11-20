@@ -29,7 +29,7 @@ jobs:
           node --check dashboard/app.js
           node --check dashboard/android-repos.js
       - name: Testar filtro de repositórios Android
-        run: node --test tests/android-repos.test.cjs
+        run: node --test tests/android-repos.test.cjs tests/test-console-build-config.cjs
       - name: Testar identificação de projeto
         run: bash tests/test-detect.sh
       - name: Validar builds por flavor e integração de assinatura

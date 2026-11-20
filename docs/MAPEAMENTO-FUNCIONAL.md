@@ -62,3 +62,12 @@ Painel pessoal de compilação Android, acessível por celular, hospedado em Git
 ## Definição de pronto
 
 Considerar **publicado** somente quando GitHub Pages tiver deploy bem-sucedido e a URL responder ao navegador. Considerar **testado** somente o que tiver evidência de compilação real. A aprovação da loja depende do Google Play Console.
+
+## Compatibilidade Kotlin Master — integração do console
+
+- Flavor automático detecta a convenção do `Kotlin-Master-Boilerplate` na fonte; `apk` compila `assembleDevDebug`, enquanto `aab-unsigned` compila `bundleProdRelease`.
+- `android_flavor` acompanha painel → workflow despacho → workflow reutilizável → `scripts/build.sh`.
+- Artefatos são selecionados pelo diretório exato da variante, evitando coletar acidentalmente builds de outro flavor.
+- Para release assinada, o motor exporta `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` além das variáveis `UNIVERSAL_*` anteriores.
+- Testes automatizados verificam APK, AAB unsigned, flavor explícito, Gradle sem flavor e passagem do contrato de assinatura, sem enviar segredos reais.
+- A validação end-to-end do workflow reutilizável e a interação autenticada no painel são marcos separados e devem ter evidência própria.
