@@ -1,0 +1,81 @@
+name: Universal Build - Smoke Android real
+on:
+  push:
+    branches:
+      - main
+      - implementation/**
+    paths:
+      - "samples/android-native/**"
+      - "scripts/detect.sh"
+      - "scripts/build.sh"
+      - ".github/workflows/smoke-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Instalar Android SDK 36
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+      - name: Compilar APK nativo real
+        env:
+          UB_PROJECT_DIR: samples/android-native
+          UB_KIND: android
+          UB_TARGET: apk
+          UB_MODULE: app
+        run: |
+          set -euo pipefail
+          [[ "$(bash scripts/detect.sh samples/android-native)" == android ]]
+          bash scripts/build.sh
+      - name: Gerar AAB release com chave efêmera de laboratório
+        env:
+          UB_PROJECT_DIR: samples/android-native
+          UB_KIND: android
+          UB_TARGET: aab
+          UB_MODULE: app
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -noprompt -keyalg RSA -keysize 2048 -validity 7 \
+            -alias smoke -keystore "$RUNNER_TEMP/smoke.jks" \
+            -storepass "SmokePass2026!" -keypass "SmokePass2026!" \
+            -dname "CN=Universal Build Smoke, O=Tests, C=BR"
+          export UB_KEYSTORE_BASE64="$(base64 -w0 "$RUNNER_TEMP/smoke.jks")"
+          export UB_KEYSTORE_PASSWORD="SmokePass2026!"
+          export UB_KEY_ALIAS="smoke"
+          export UB_KEY_PASSWORD="SmokePass2026!"
+          bash scripts/build.sh
+          rm -f "$RUNNER_TEMP/smoke.jks"
+      - name: Publicar AAB de validação
+        uses: actions/upload-artifact@v4
+        with:
+          name: Universal-Build-Smoke-AAB
+          path: ${{ runner.temp }}/ub-artifacts/*.aab
+          if-no-files-found: error
+          retention-days: 7
+      - name: Publicar APK de validação
+        uses: actions/upload-artifact@v4
+        with:
+          name: Universal-Build-Smoke-Android
+          path: ${{ runner.temp }}/ub-artifacts/*.apk
+          if-no-files-found: error
+          retention-days: 7

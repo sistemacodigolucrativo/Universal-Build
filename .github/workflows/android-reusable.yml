@@ -1,0 +1,129 @@
+name: Universal Build - Android (reutilizável)
+on:
+  workflow_call:
+    inputs:
+      build_target:
+        type: string
+        default: apk
+      project_dir:
+        type: string
+        default: .
+      upload_zip_path:
+        type: string
+        default: ''
+      android_module:
+        type: string
+        default: app
+      java_version:
+        type: string
+        default: '17'
+      node_version:
+        type: string
+        default: '20'
+      flutter_version:
+        type: string
+        default: ''
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Compilar ${{ inputs.build_target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Baixar o projeto Android
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Baixar motor Universal-Build
+        uses: actions/checkout@v4
+        with:
+          repository: sistemacodigolucrativo/Universal-Build
+          ref: main
+          path: .universal-build/core
+          persist-credentials: false
+      - name: Extrair ZIP, quando fornecido
+        id: zip
+        env:
+          ZIP_PATH: ${{ inputs.upload_zip_path }}
+          PROJECT_DIR: ${{ inputs.project_dir }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$ZIP_PATH" ]]; then
+            [[ "$ZIP_PATH" =~ ^uploads/[A-Za-z0-9._-]+\.zip$ ]] || { echo 'Caminho do ZIP inválido'; exit 2; }
+            [[ -f "$ZIP_PATH" ]] || { echo 'Arquivo ZIP não encontrado'; exit 2; }
+            source_path="$(python3 .universal-build/core/scripts/extract_zip.py "$ZIP_PATH" .universal-build/uploaded)"
+          else
+            source_path="$PROJECT_DIR"
+          fi
+          [[ -d "$source_path" ]] || { echo 'Diretório de projeto inválido'; exit 2; }
+          echo "source_path=$source_path" >> "$GITHUB_OUTPUT"
+      - name: Identificar tecnologia
+        id: detect
+        env:
+          PROJECT_DIR: ${{ steps.zip.outputs.source_path }}
+        run: |
+          set -euo pipefail
+          kind="$(bash .universal-build/core/scripts/detect.sh "$PROJECT_DIR")"
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
+          echo "Tecnologia identificada: $kind"
+      - name: Instalar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
+      - name: Preparar SDK Android
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Configurar Gradle
+        if: ${{ steps.detect.outputs.kind != 'flutter' }}
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+      - name: Configurar Node.js para React Native
+        if: ${{ steps.detect.outputs.kind == 'react-native' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+      - name: Configurar Flutter
+        if: ${{ steps.detect.outputs.kind == 'flutter' }}
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ inputs.flutter_version }}
+          cache: true
+      - name: Compilar e verificar artefatos
+        env:
+          UB_KIND: ${{ steps.detect.outputs.kind }}
+          UB_PROJECT_DIR: ${{ steps.zip.outputs.source_path }}
+          UB_TARGET: ${{ inputs.build_target }}
+          UB_MODULE: ${{ inputs.android_module }}
+          UB_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          UB_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          UB_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          UB_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bash .universal-build/core/scripts/build.sh
+      - name: Disponibilizar APK e/ou AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-${{ github.event.repository.name }}-${{ github.run_number }}-${{ inputs.build_target }}
+          path: ${{ runner.temp }}/ub-artifacts/*
+          if-no-files-found: error
+          retention-days: 14

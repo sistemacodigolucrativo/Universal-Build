@@ -1,0 +1,23 @@
+name: Universal Build - Integração Reutilizável
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/android-reusable.yml"
+      - ".github/workflows/integration-android.yml"
+      - "scripts/**"
+      - "samples/android-native/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-reusable-workflow:
+    uses: ./.github/workflows/android-reusable.yml
+    with:
+      project_dir: samples/android-native
+      build_target: apk
+      java_version: "17"
+      android_module: app

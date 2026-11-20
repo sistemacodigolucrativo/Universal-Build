@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Central pessoal de compilação Android com GitHub Actions.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://api.github.com; script-src 'self'; style-src 'self'; img-src 'self' https://avatars.githubusercontent.com; object-src 'none'; base-uri 'none'">
+  <title>Universal Build · Android</title>
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <main class="layout">
+    <header class="top">
+      <div class="brand"><div class="mark">UB</div><div><strong>Universal Build</strong><small>Android CI/CD Console</small></div></div>
+      <a class="headlink" href="https://github.com/sistemacodigolucrativo/Universal-Build" target="_blank" rel="noopener noreferrer">Repositório ↗</a>
+    </header>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <section id="login-view" class="panel auth">
+      <span class="eyebrow">Acesso individual</span>
+      <h1>Conecte seu GitHub</h1>
+      <p>Utilize seu nome de usuário e um token pessoal com acesso aos repositórios e workflows que deseja administrar.</p>
+      <form id="login-form">
+        <label for="username">Usuário GitHub</label>
+        <input id="username" name="username" autocomplete="username" required placeholder="Seu usuário">
+        <label for="token">Token GitHub</label>
+        <input id="token" name="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="github_pat_...">
+        <p class="small caution">O token é armazenado localmente neste navegador até a próxima meia-noite (horário do dispositivo). Evite aparelhos compartilhados e extensões não confiáveis.</p>
+        <button type="submit" id="login-btn" class="primary">Conectar</button>
+      </form>
+    </section>
+    <section id="app-view" hidden>
+      <div class="welcome">
+        <div><span class="eyebrow">Painel de compilação</span><h1>Seus projetos Android</h1><p id="connection-info">Conectado</p></div>
+        <button id="logout-btn" class="ghost">Sair</button>
+      </div>
+      <div class="columns">
+        <section class="panel">
+          <h2>1 · Repositório</h2>
+          <p>Selecione um projeto existente ou crie um novo repositório.</p>
+          <label for="repo-select">Projetos disponíveis</label>
+          <select id="repo-select"><option value="">Selecione um repositório</option></select>
+          <div class="inline"><button id="refresh-repos" class="secondary">Atualizar lista</button><a id="open-repo" href="#" target="_blank" rel="noopener noreferrer" hidden>Ver no GitHub ↗</a></div>
+          <hr>
+          <details>
+            <summary>Criar novo repositório</summary>
+            <form id="new-repo-form">
+              <label for="new-repo-name">Nome do repositório</label>
+              <input id="new-repo-name" required placeholder="meu-novo-app" pattern="[A-Za-z0-9._-]+">
+              <label for="new-repo-private">Visibilidade</label>
+              <select id="new-repo-private"><option value="true">Privado (recomendado)</option><option value="false">Público</option></select>
+              <button class="secondary" type="submit">Criar repositório</button>
+            </form>
+          </details>
+          <hr>
+          <button id="install-btn" class="secondary wide" disabled>Instalar ou atualizar workflow do projeto</button>
+          <p class="small">Esta ação adiciona o arquivo <code>.github/workflows/universal-build.yml</code> no repositório selecionado. Não altera o código do aplicativo.</p>
+        </section>
+        <section class="panel">
+          <h2>2 · Configurar compilação</h2>
+          <form id="build-form">
+            <label for="build-target">Tipo de build</label>
+            <select id="build-target">
+              <option value="apk">APK de testes (debug)</option>
+              <option value="both">APK de testes + AAB de distribuição</option>
+              <option value="aab">AAB de distribuição (release)</option>
+              <option value="release-apk">APK de distribuição (release)</option>
+            </select>
+            <label for="project-dir">Pasta do projeto</label>
+            <input id="project-dir" value="." placeholder=". ou mobile/android">
+            <label for="android-module">Módulo Android</label>
+            <input id="android-module" value="app" pattern="[a-zA-Z0-9_]+" required>
+            <div class="two">
+              <div><label for="java-version">Java</label><select id="java-version"><option value="17">17</option><option value="21">21</option></select></div>
+              <div><label for="node-version">Node.js</label><select id="node-version"><option value="20">20</option><option value="22">22</option></select></div>
+            </div>
+            <label for="flutter-version">Flutter (opcional)</label>
+            <input id="flutter-version" placeholder="Vazio = stable atual">
+            <hr>
+            <label for="project-zip">Importar projeto ZIP (opcional, até 15 MiB)</label>
+            <input id="project-zip" type="file" accept=".zip,application/zip">
+            <p class="small">O ZIP será salvo no repositório selecionado e extraído pelo GitHub Actions. Em repositórios públicos, o conteúdo poderá ficar público. Para projetos maiores, use um repositório já preenchido.</p>
+            <button id="run-btn" type="submit" class="primary wide" disabled>Iniciar build</button>
+          </form>
+        </section>
+      </div>
+      <section class="panel history">
+        <div class="inline space"><div><h2>3 · Compilações recentes</h2><p>Acompanhe os resultados e abra os artefatos no GitHub.</p></div><button id="refresh-runs" class="secondary" disabled>Atualizar</button></div>
+        <div id="run-list" class="run-list"><p class="small">Selecione um repositório para visualizar o histórico.</p></div>
+      </section>
+      <footer>Universal Build · Serviço estático, sem banco de dados e sem servidor próprio. Compilações executadas no GitHub Actions.</footer>
+    </section>
+  </main>
+</body>
+</html>
