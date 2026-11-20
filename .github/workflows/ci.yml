@@ -26,6 +26,9 @@ jobs:
           bash -n tests/test-detect.sh
           python3 -m py_compile scripts/extract_zip.py
           node --check dashboard/app.js
+          node --check dashboard/android-repos.js
+      - name: Testar filtro de repositórios Android
+        run: node --test tests/android-repos.test.cjs
       - name: Testar identificação de projeto
         run: bash tests/test-detect.sh
       - name: Testar extração segura de ZIP

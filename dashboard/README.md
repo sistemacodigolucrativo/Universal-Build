@@ -4,7 +4,10 @@ Painel sem backend/banco de dados, para uso individual. Inclui:
 - autenticação por usuário e Personal Access Token;
 - sessão até a próxima meia-noite local (armazenada em `localStorage`);
 - criação de repositórios quando o token permitir;
-- listagem e seleção de projetos;
+- listagem e seleção **apenas de projetos Android verificáveis**: a interface confere a árvore GitHub de cada repositório com permissão de escrita e exige `settings.gradle[.kts]` + `build.gradle[.kts]` + `src/main/AndroidManifest.xml` dentro do mesmo módulo;
+- Android nativo, Flutter e React Native com subprojeto Android são aceitos; repositórios somente web, sem estrutura Android, ficam ocultos;
+- repositórios inacessíveis ou com árvore truncada sem prova de Android não são exibidos, e o painel avisa sobre verificações incompletas;
+- repositórios vazios recém-criados só aparecerão depois de receber código Android compatível;
 - instalação/atualização do workflow de build;
 - upload opcional de ZIP de até 15 MiB;
 - envio de parâmetros e acionamento do GitHub Actions;
