@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "appId": "second-app",
+  "applicationId": "br.com.androidmaster.segundoapp",
+  "displayName": "Segundo Aplicativo",
+  "versionCode": 1,
+  "versionName": "1.0.0",
+  "startUrl": "https://example.com/",
+  "allowedHosts": [
+    "example.com"
+  ],
+  "theme": {
+    "mode": "system",
+    "primaryColor": "#8A3FFC"
+  },
+  "navigation": {
+    "topBar": true,
+    "bottomBar": false,
+    "drawer": true,
+    "swipeBetweenTabs": false,
+    "tabs": [
+      {
+        "id": "start",
+        "title": "Início",
+        "url": "https://example.com/"
+      }
+    ]
+  },
+  "features": {
+    "downloads": false,
+    "favorites": true,
+    "sharing": true,
+    "fileUpload": false,
+    "notifications": false,
+    "ads": false,
+    "billing": false
+  },
+  "security": {
+    "allowJavaScript": true,
+    "allowThirdPartyCookies": false,
+    "allowExternalLinks": true
+  }
+}

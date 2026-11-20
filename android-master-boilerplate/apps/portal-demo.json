@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "appId": "portal-demo",
+  "applicationId": "br.com.androidmaster.portaldemo",
+  "displayName": "Portal Demo",
+  "versionCode": 1,
+  "versionName": "1.0.0",
+  "startUrl": "https://example.org/",
+  "allowedHosts": [
+    "example.org"
+  ],
+  "theme": {
+    "mode": "system",
+    "primaryColor": "#1463C5"
+  },
+  "navigation": {
+    "topBar": true,
+    "bottomBar": true,
+    "drawer": true,
+    "swipeBetweenTabs": false,
+    "tabs": [
+      {
+        "id": "home",
+        "title": "Início",
+        "url": "https://example.org/"
+      },
+      {
+        "id": "about",
+        "title": "Sobre",
+        "url": "https://example.org/"
+      }
+    ]
+  },
+  "features": {
+    "downloads": true,
+    "favorites": true,
+    "sharing": true,
+    "fileUpload": true,
+    "notifications": false,
+    "ads": false,
+    "billing": false
+  },
+  "security": {
+    "allowJavaScript": true,
+    "allowThirdPartyCookies": false,
+    "allowExternalLinks": true
+  }
+}
