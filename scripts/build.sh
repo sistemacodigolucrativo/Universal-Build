@@ -135,7 +135,7 @@ copy_result() {
     [[ "$version_code" =~ ^[0-9]+$ && "$version_code" -gt 0 ]] || {
       echo "AAB inválido: versionCode ausente ou inválido." >&2; exit 4
     }
-    echo "Play Store: AAB assinado, targetSdk=$target_api e versionCode=$version_code (não garante aprovação na loja)."
+    echo "Play Store: AAB validado (assinatura: $name), targetSdk=$target_api e versionCode=$version_code (não garante aprovação na loja)."
   elif [[ "$name" == release.apk ]]; then
     local verifier
     verifier="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
