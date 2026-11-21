@@ -8,3 +8,25 @@
 .admob-check input[type=checkbox]{width:19px;height:19px;accent-color:#5794fb;flex:none}
 .admob-format input:not([type=checkbox]){margin-top:0}
 #admob-status{border-left:3px solid #638dda;padding-left:10px}
+
+/* Toasts globais: fixos, sem deslocar a página, com fechamento e auto-dismiss. */
+.toast-stack{position:fixed;z-index:1000;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));width:min(380px,calc(100vw - 24px));display:grid;gap:9px;pointer-events:none}
+.toast{pointer-events:auto;display:flex;align-items:flex-start;gap:10px;min-width:0;border:1px solid #547da7;background:#173350;color:#e9f7ff;border-radius:12px;padding:13px 12px;box-shadow:0 12px 36px #0009;animation:toast-appear .18s ease-out}
+.toast--error{border-color:#cf5b65;background:#4a222e;color:#ffe6e9}
+.toast--success{border-color:#3ca58a;background:#123c36;color:#dffef4}
+.toast__message{min-width:0;flex:1;margin:0;font-size:13px;overflow-wrap:anywhere}
+.toast__close{min-width:36px;min-height:36px;border:0;background:transparent;color:inherit;font-size:19px;padding:3px;line-height:1;cursor:pointer}
+@keyframes toast-appear{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.toast{animation:none}}
+/* Progresso = etapas GitHub Actions; nunca se apresenta como progresso interno do Gradle. */
+.build-progress{padding:15px;margin:14px 0;border:1px solid #39547a;background:#0d1e36;border-radius:12px}
+.build-progress strong{font-size:14px;display:block;margin-bottom:10px}
+.build-progress progress,.run-progress progress{display:block;width:100%;height:12px;accent-color:#6da4ff;overflow:hidden}
+.build-progress p{margin:8px 0 0}
+.run-progress{margin:10px 0;padding:10px;background:#101f34;border-radius:9px}
+.run-progress p{margin:5px 0 0;font-size:12px}
+.run-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;align-items:center}
+.artifact-download{min-width:120px;font-size:12px;padding:8px 10px;max-width:100%;overflow-wrap:anywhere}
+.artifact-line{gap:10px}
+.artifact-line .artifact-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:530px){.toast-stack{right:12px;left:12px;width:auto}.artifact-actions button{flex:1}}
