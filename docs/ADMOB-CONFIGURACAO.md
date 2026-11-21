@@ -2,9 +2,9 @@
 
 ## Onde editar
 
-No console Universal Build, conecte o GitHub, selecione um repositório Android e abra **3 · Configurações · Monetização AdMob**. O formulário lê e grava `config/universal-build-admob.json` **no repositório Android selecionado**. A gravação cria um commit na branch padrão do projeto, com confirmação explícita do operador.
+No console Universal Build, conecte o GitHub, selecione um repositório Android e abra **3 · Configurações · Monetização AdMob**. O formulário lê e grava `config/universal-build-admob.json` **no repositório Android e na branch selecionados**. A gravação cria um commit nessa branch, com confirmação explícita do operador. A instalação dos workflows, diferentemente, atua na branch padrão e requer confirmação.
 
-O console é uma aplicação web estática: **não possui backend de monetização, nem instala SDK Android por alterar esse JSON**. O Kotlin Master (e cada aplicativo já derivado) precisa de um adaptador próprio para consumir o contrato durante a compilação, alimentar a configuração de SDK e expor os espaços publicitários adequados. Até essa integração, salvar o arquivo é apenas configuração persistida e versionada.
+O console é uma aplicação web estática: **não possui backend de monetização, nem instala SDK Android por alterar esse JSON**. O módulo nativo `:core:ads` e a configuração Gradle já foram implementados como propostas na PR 12 do Kotlin Master e PR 7 do QR Studio (ver links abaixo), mas não se deve pressupor que estejam em `main` ou instalados em todos os aplicativos derivados. **Sem integração Android no app/branch compilada, salvar JSON é apenas configuração persistida e versionada.**
 
 ## Formato do arquivo
 
@@ -33,9 +33,9 @@ O console é uma aplicação web estática: **não possui backend de monetizaç�
 
 Os códigos de aplicação e de unidade de anúncio são identificadores públicos do AdMob, não segredos de autenticação. Não coloque tokens, senhas de conta, chaves de assinatura nem credenciais no arquivo.
 
-## Etapa de integração Android pendente
+## Contrato de integração Android e verificação por branch
 
-1. O projeto Android deve interpretar e validar `config/universal-build-admob.json` **antes de compilar**; o build de produção deve falhar em caso de modo `test` que acidentalmente produza anúncios demonstrativos. A verificação do console não é um substituto para essa barreira.
+1. O projeto Android deve interpretar e validar `config/universal-build-admob.json` **antes de compilar**; no código das PRs 12/7, `dev/staging` usam IDs demonstrativos, enquanto `prod` em `mode=test` permanece desligado. A verificação do console não substitui essa proteção do Gradle.
 2. Para GMA Next-Gen SDK, o App ID precisa ser informado na inicialização; o Google UMP também exige App ID no `AndroidManifest.xml`. Modificar o App ID não atualiza automaticamente um APK já instalado.
 3. Instanciar os formatos apenas quando houver SDK, consentimento e pontos de exibição explícitos. Evitar intersticiais em interações inesperadas. Aplicar o intervalo mínimo configurado.
 4. Para vídeos recompensados, conceder moedas somente após o callback de recompensa validado; em sistema com saldo persistente, aplicar controles antifraude, idempotência e ledger no backend. **Este painel não concede recompensas**.
@@ -48,3 +48,10 @@ O modo `off` deve continuar funcional mesmo sem dependências SDK de anúncios n
 CI executa `node --test tests/admob-settings.test.cjs` (modo seguro, validação dos IDs, IDs de teste, controle de cooldown e presença dos campos do console). O fluxo completo no Android, aprovação de consentimento UMP e veiculação de anúncios **não são cobertos pelos testes desta etapa**.
 
 Referências: [GMA Next-Gen](https://developers.google.com/admob/android/next-gen/quick-start), [anúncios de teste](https://developers.google.com/admob/android/next-gen/test-ads), [UMP](https://developers.google.com/admob/android/next-gen/privacy).
+
+
+## Implementações e operação da interface
+
+- [Painel — PR 5](https://github.com/sistemacodigolucrativo/Universal-Build/pull/5); [módulo Kotlin — PR 12](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/pull/12); [QR Studio — PR 7](https://github.com/sistemacodigolucrativo/QR-Studio/pull/7).
+- [Novo console e sequência de uso](CONSOLE-UX-ADMOB-PROGRESSO.md). A seleção de branch no painel permite testar a PR do aplicativo sem gravar o JSON em sua `main`.
+- Alterar IDs não atualiza aplicativos instalados; recompilar na branch que recebeu o JSON. Não publicar com dados de teste como se fossem anúncios monetizados.
