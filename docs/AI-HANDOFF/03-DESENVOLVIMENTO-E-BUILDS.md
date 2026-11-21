@@ -21,7 +21,7 @@
    - Para consultar artefatos históricos, abrir os logs no GitHub da execução correspondente.
 7. Extrair o ZIP no Android, instalar **APK debug**, testar e documentar resultados. Build aprovado não prova exibição correta, sensores, navegação nem políticas da loja.
 
-**Atenção:** o console na branch `main` não contém a nova seção AdMob em 21/11/2026; essa UI está na [PR 5](https://github.com/sistemacodigolucrativo/Universal-Build/pull/5).
+**Histórico AdMob:** a [PR 5](https://github.com/sistemacodigolucrativo/Universal-Build/pull/5) foi incorporada à `main` em 21/11/2026. O código atual do painel contém a seção AdMob. A publicação e os testes manuais devem ser verificados separadamente.
 
 ## 3. Valores de inputs do workflow
 
