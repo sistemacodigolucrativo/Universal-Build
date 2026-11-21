@@ -1,5 +1,8 @@
 # Universal Build 🚀
 
+> **Para agentes de IA e novos mantenedores:** antes de qualquer implementação, leia [AGENTS.md](AGENTS.md) e o [Manual de Continuidade Universal Build + Kotlin Master](docs/AI-HANDOFF/README.md). O manual descreve arquitetura, uso do template Kotlin, desenvolvimento, builds, assinatura, produção, AdMob, status das PRs e procedimentos de retomada. Seu estado é um retrato datado; verifique GitHub/CI atualizados antes de agir.
+
+
 **Infraestrutura universal para compilar aplicativos Android via GitHub Actions e controlar builds pelo navegador do celular.**
 
 Projetos Android Gradle (Java, Kotlin e Jetpack Compose), Flutter e React Native — desde que possuam código-fonte Android válido — podem gerar:
