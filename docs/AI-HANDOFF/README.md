@@ -19,6 +19,7 @@
 
 ## Documentação original (manter como fonte complementar)
 
+- [Console atualizado: AdMob por branch, toasts, progresso e downloads](../CONSOLE-UX-ADMOB-PROGRESSO.md) — implementação mesclada à `main` em 21/11/2026; validar último deploy do GitHub Pages.
 - [README geral](../../README.md), [arquitetura original](../ARQUITETURA.md), [mapeamento funcional](../MAPEAMENTO-FUNCIONAL.md), [assinatura e Play Store](../ASSINATURA-E-PLAY-STORE.md), [manual do console](../../dashboard/README.md).
 - [README do Kotlin Master](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/blob/main/README.md), [arquitetura Kotlin](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/blob/main/docs/ARQUITETURA.md), [integração](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/blob/main/docs/INTEGRACAO-UNIVERSAL-BUILD.md), [compatibilidade](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/blob/main/docs/COMPATIBILIDADE-E-TESTES.md). O Kotlin Master é **privado**; o leitor precisa ter acesso autorizado.
 - Código operacional: [workflows](../../.github/workflows/), [templates](../../templates/), [scripts](../../scripts/), [testes](../../tests/), [dashboard](../../dashboard/).
