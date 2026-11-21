@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
-const { summarize } = require("../dashboard/build-progress.js");
+const { summarize, selectCurrentRun } = require("../dashboard/build-progress.js");
 const { prepare, entries } = require("../dashboard/artifact-download.js");
 const source = file => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
 
@@ -25,6 +25,37 @@ test("build progress reflects GitHub steps, not guessed Gradle percentage", () =
   assert.equal(summarize({ status: "queued" }, []).percent, null);
   assert.equal(summarize({ status: "completed", conclusion: "success" }, []).percent, 100);
   assert.match(summarize({ status: "completed", conclusion: "failure" }, []).stage, /falhou/);
+});
+
+
+test("active run is shown even if GitHub created_at precedes the dispatch window", () => {
+  const now = Date.parse("2026-11-21T14:09:00Z");
+  const old = { id: 38, status: "completed", conclusion: "success", created_at: "2026-11-21T14:03:57Z" };
+  const active = { id: 39, status: "in_progress", created_at: "2026-11-21T14:08:01Z" };
+  const dispatch = { repo: "org/app", branch: "main", at: now - 10000, knownRunIds: [38] };
+  const selected = selectCurrentRun([active, old], dispatch, "org/app", "main", now);
+  assert.equal(selected.current.id, 39);
+  assert.equal(selected.pending, true);
+  // Only the selected current run is eligible for artifacts: old successful #38 is not.
+  assert.notEqual(selected.current.id, old.id);
+});
+
+test("previous successful build is not selected while a new dispatch is awaiting its run", () => {
+  const now = Date.parse("2026-11-21T14:09:00Z");
+  const old = { id: 38, status: "completed", created_at: "2026-11-21T14:03:57Z" };
+  const dispatch = { repo: "org/app", branch: "main", at: now - 5000, knownRunIds: [38] };
+  assert.equal(selectCurrentRun([old], dispatch, "org/app", "main", now).current, null);
+  const fresh = { id: 39, status: "completed", created_at: "2026-11-21T14:08:01Z" };
+  assert.equal(selectCurrentRun([fresh, old], dispatch, "org/app", "main", now).current.id, 39);
+});
+
+test("without pending dispatch the live run wins and branch mismatches do not hide history", () => {
+  const old = { id: 38, status: "completed", created_at: "2026-11-21T14:03:57Z" };
+  const live = { id: 39, status: "queued", created_at: "2026-11-21T14:08:01Z" };
+  const dispatch = { repo: "org/app", branch: "other", at: Date.now(), knownRunIds: [38] };
+  const selected = selectCurrentRun([live, old], dispatch, "org/app", "main");
+  assert.equal(selected.pending, false);
+  assert.equal(selected.current.id, 39);
 });
 
 function makeZip(contents) {
