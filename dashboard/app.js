@@ -10,14 +10,37 @@
   const state = { token: "", login: "", expires: 0, repos: [], repo: null };
   let repoScanId = 0;
   let adConfigRequestId = 0;
-  let currentAdConfig = { name: "", sha: null, loaded: false };
+  let branchRequestId = 0;
+  let refreshRequestId = 0;
+  let lastDispatch = null;
+  const activeDownloads = new Set();
+  let currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
   const $ = (id) => document.getElementById(id);
 
+  /* Transient notifications are accessible, floating and dismissible toasts. */
   function notice(message, error = false) {
-    const box = $("notice");
-    box.hidden = !message;
-    box.textContent = message || "";
-    box.classList.toggle("error", !!error);
+    if (!message) return;
+    const container = $("toast-stack");
+    if ([...container.children].some(item =>
+        item.querySelector(".toast__message")?.textContent === message)) return;
+    const toast = document.createElement("div");
+    toast.className = "toast " + (error ? "toast--error" :
+      /salv[ao]|conclu|conectad[oa]|sucesso/i.test(message) ?
+      "toast--success" : "toast--info");
+    toast.setAttribute("role", error ? "alert" : "status");
+    const info = document.createElement("p");
+    info.className = "toast__message";
+    info.textContent = message;
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "toast__close";
+    close.setAttribute("aria-label", "Fechar aviso");
+    close.textContent = "×";
+    close.addEventListener("click", () => toast.remove());
+    toast.append(info, close);
+    container.append(toast);
+    while (container.children.length > 4) container.firstElementChild.remove();
+    window.setTimeout(() => toast.remove(), error ? 9000 : 5000);
   }
   function midnight() {
     const day = new Date();
@@ -32,7 +55,13 @@
     state.repos = [];
     repoScanId++;
     adConfigRequestId++;
-    currentAdConfig = { name: "", sha: null, loaded: false };
+    branchRequestId++;
+    refreshRequestId++;
+    currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
+    lastDispatch = null;
+    $("branch-select").replaceChildren(new Option("Selecione primeiro um repositório", ""));
+    $("branch-select").disabled = true;
+    $("build-progress").hidden = true;
     $("admob-save").disabled = true;
     $("admob-status").textContent = "Selecione um projeto Android para carregar as configurações.";
     localStorage.removeItem(STORAGE);
@@ -101,6 +130,9 @@
     if (!state.repo) throw new Error("Selecione um repositório.");
     return state.repo;
   }
+  function selectedBranch(repo = selected()) {
+    return $("branch-select").value || repo.default_branch;
+  }
   function showApp() {
     $("login-view").hidden = true;
     $("app-view").hidden = false;
@@ -157,6 +189,7 @@
     const selectedName = preferred || select.value || (state.repo && state.repo.full_name);
     select.disabled = true;
     select.replaceChildren(new Option("Verificando projetos Android...", ""));
+    $("repo-scan-status").textContent = "Consultando a estrutura dos projetos...";
     state.repos = [];
     selectRepo();
     notice("Localizando repositórios e verificando a estrutura Android...");
@@ -195,8 +228,8 @@
           } finally {
             checked++;
             if (requestId === repoScanId && (checked % 10 === 0 || checked === candidates.length)) {
-              notice("Analisando projetos Android: " + checked + "/" + candidates.length +
-                " · identificados: " + androidRepos.length);
+              $("repo-scan-status").textContent = "Analisando " + checked + "/" + candidates.length +
+                " projetos · identificados: " + androidRepos.length;
             }
           }
         }
@@ -213,6 +246,7 @@
         select.value = selectedName;
       }
       selectRepo();
+      $("repo-scan-status").textContent = "Análise concluída: " + androidRepos.length + " projeto(s) Android.";
       const partial = !!interrupted || unknown > 0;
       notice(state.repos.length + " projeto(s) Android identificado(s) entre " +
         candidates.length + " repositório(s) analisáveis." +
@@ -225,8 +259,35 @@
       if (requestId === repoScanId) select.disabled = false;
     }
   }
+  async function loadBranches(repo) {
+    const requestId = ++branchRequestId;
+    const selector = $("branch-select");
+    const name = repo.full_name;
+    selector.disabled = true;
+    try {
+      const response = await api(repoPath(repo) + "/branches?per_page=100");
+      if (!state.repo || state.repo.full_name !== name || requestId !== branchRequestId) return;
+      const names = Array.isArray(response) ? response.map(item => item.name) : [];
+      if (!names.includes(repo.default_branch)) names.unshift(repo.default_branch);
+      selector.replaceChildren();
+      for (const item of names) {
+        selector.add(new Option(item + (item === repo.default_branch ? " (padrão)" : ""), item));
+      }
+      selector.value = repo.default_branch;
+      selector.disabled = false;
+      loadAdmobConfig(repo);
+      refreshRuns();
+    } catch (error) {
+      if (!state.repo || state.repo.full_name !== name || requestId !== branchRequestId) return;
+      selector.disabled = false;
+      notice("Não foi possível listar branches; usando " + repo.default_branch + ": " + error.message, true);
+      loadAdmobConfig(repo);
+      refreshRuns();
+    }
+  }
+
   function selectRepo() {
-    state.repo = state.repos.find((r) => r.full_name === $("repo-select").value) || null;
+    state.repo = state.repos.find(r => r.full_name === $("repo-select").value) || null;
     const active = !!state.repo;
     $("install-btn").disabled = !active;
     $("run-btn").disabled = !active;
@@ -235,15 +296,23 @@
     $("admob-save").disabled = true;
     $("open-repo").hidden = !active;
     adConfigRequestId++;
-    currentAdConfig = { name: "", sha: null, loaded: false };
+    branchRequestId++;
+    refreshRequestId++;
+    lastDispatch = null;
+    $("build-progress").hidden = true;
+    currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
     renderAdmobConfig(window.UniversalAdMobConfig.defaults());
     $("admob-status").textContent = active ? "Carregando configurações do projeto..." :
       "Selecione um projeto Android para carregar as configurações.";
+    const branches = $("branch-select");
+    branches.replaceChildren(new Option(
+      active ? state.repo.default_branch + " (padrão)" : "Selecione primeiro um repositório",
+      active ? state.repo.default_branch : ""));
+    branches.disabled = !active;
     if (active) {
       $("open-repo").href = "https://github.com/" + state.repo.full_name;
       $("secrets-link").href = "https://github.com/" + state.repo.full_name + "/settings/secrets/actions";
-      refreshRuns();
-      loadAdmobConfig(state.repo);
+      loadBranches(state.repo);
     } else {
       $("run-list").replaceChildren();
       const p = document.createElement("p");
@@ -252,6 +321,21 @@
       $("run-list").append(p);
     }
   }
+
+  function changeBranch() {
+    if (!state.repo) return;
+    adConfigRequestId++;
+    refreshRequestId++;
+    currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
+    $("admob-save").disabled = true;
+    renderAdmobConfig(window.UniversalAdMobConfig.defaults());
+    $("admob-status").textContent = "Carregando configurações da branch " + selectedBranch() + "...";
+    $("build-progress").hidden = true;
+    lastDispatch = null;
+    loadAdmobConfig(state.repo);
+    refreshRuns();
+  }
+
   function renderAdmobConfig(config) {
     $("admob-mode").value = config.mode;
     $("admob-app-id").value = config.appId;
@@ -275,26 +359,27 @@
   async function loadAdmobConfig(repo) {
     const id = ++adConfigRequestId;
     const name = repo.full_name;
+    const branch = selectedBranch(repo);
     const path = repoPath(repo) + "/contents/" + window.UniversalAdMobConfig.PATH;
     try {
       let file = null;
       try {
-        file = await api(path + "?ref=" + encodeURIComponent(repo.default_branch));
+        file = await api(path + "?ref=" + encodeURIComponent(branch));
       } catch (error) {
         if (error.status !== 404) throw error;
       }
       const config = file ? window.UniversalAdMobConfig.normalize(
         JSON.parse(decodeGitHubFile(file))) : window.UniversalAdMobConfig.defaults();
-      if (id !== adConfigRequestId || !state.repo || state.repo.full_name !== name) return;
+      if (id !== adConfigRequestId || !state.repo || state.repo.full_name !== name || selectedBranch() !== branch) return;
       renderAdmobConfig(config);
-      currentAdConfig = { name, sha: file ? file.sha : null, loaded: true };
+      currentAdConfig = { name, branch, sha: file ? file.sha : null, loaded: true };
       $("admob-save").disabled = false;
       $("admob-status").textContent = file ?
         "Configuração carregada do GitHub (modo: " + config.mode + ")." :
         "Sem configuração salva. O modo padrão é desativado.";
     } catch (error) {
-      if (id !== adConfigRequestId || !state.repo || state.repo.full_name !== name) return;
-      currentAdConfig = { name, sha: null, loaded: false };
+      if (id !== adConfigRequestId || !state.repo || state.repo.full_name !== name || selectedBranch() !== branch) return;
+      currentAdConfig = { name, branch, sha: null, loaded: false };
       $("admob-save").disabled = true;
       $("admob-status").textContent = "Falha ao carregar; salvamento bloqueado: " + error.message;
       notice("Não foi possível ler AdMob em " + name + ": " + error.message, true);
@@ -303,14 +388,16 @@
   async function saveAdmobConfig(ev) {
     ev.preventDefault();
     const repo = selected();
-    if (!currentAdConfig.loaded || currentAdConfig.name !== repo.full_name) {
-      return notice("Carregue primeiro as configurações AdMob deste projeto.", true);
+    const branch = selectedBranch(repo);
+    if (!currentAdConfig.loaded || currentAdConfig.name !== repo.full_name ||
+        currentAdConfig.branch !== branch) {
+      return notice("Carregue primeiro as configurações AdMob desta branch.", true);
     }
     let config;
     try { config = readAdmobForm(); }
     catch (err) { return notice(err.message, true); }
     if (!confirm("Salvar configurações AdMob em " + repo.full_name +
-        "? Isso cria um commit na branch " + repo.default_branch +
+        "? Isso cria um commit na branch " + branch +
         ". Alterações de App ID exigem nova compilação e integração Android.")) return;
     const btn = $("admob-save");
     btn.disabled = true;
@@ -320,12 +407,12 @@
       const body = {
         message: "config(admob): atualizar configuração de monetização",
         content: utf8Base64(JSON.stringify(config, null, 2) + "\n"),
-        branch: repo.default_branch
+        branch
       };
       if (currentAdConfig.sha) body.sha = currentAdConfig.sha;
       const response = await api(path, { method: "PUT", body: JSON.stringify(body) });
       if (state.repo && state.repo.full_name === name) {
-        currentAdConfig.sha = response.content.sha;
+        if (selectedBranch(repo) === branch) currentAdConfig.sha = response.content.sha;
         $("admob-status").textContent = "Salvo em " + name + " · modo " + config.mode +
           ". É preciso integrar esta configuração no aplicativo e recompilar.";
         notice("Configuração AdMob salva com sucesso no GitHub.");
@@ -584,6 +671,7 @@
   $("login-form").addEventListener("submit", login);
   $("logout-btn").addEventListener("click", () => { clearSession(); notice("Conexão encerrada."); });
   $("repo-select").addEventListener("change", selectRepo);
+  $("branch-select").addEventListener("change", changeBranch);
   $("refresh-repos").addEventListener("click", () => loadRepos());
   $("new-repo-form").addEventListener("submit", createRepo);
   $("install-btn").addEventListener("click", installWorkflow);
