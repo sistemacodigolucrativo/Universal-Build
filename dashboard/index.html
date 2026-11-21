@@ -9,6 +9,7 @@
   <title>Universal Build · Android</title>
   <link rel="stylesheet" href="./style.css">
   <script defer src="./android-repos.js"></script>
+  <script defer src="./admob-config.js"></script>
   <script defer src="./app.js"></script>
 </head>
 <body>
@@ -96,8 +97,44 @@
           </form>
         </section>
       </div>
+      <section class="panel history" id="admob-settings">
+        <h2>3 · Configurações · Monetização AdMob</h2>
+        <p>Configure as unidades de anúncios do projeto selecionado. As alterações são salvas no GitHub e só afetam o aplicativo quando ele estiver integrado ao contrato e receber uma nova compilação.</p>
+        <p class="small" id="admob-status" role="status" aria-live="polite">Selecione um projeto Android para carregar as configurações.</p>
+        <form id="admob-form">
+          <label for="admob-mode">Modo de anúncios</label>
+          <select id="admob-mode">
+            <option value="off">Desativado (padrão)</option>
+            <option value="test">Teste (unidades demonstrativas Google)</option>
+            <option value="live">Produção (IDs próprios)</option>
+          </select>
+          <p class="small">Em teste, os IDs demonstrativos oficiais substituem os cadastrados durante a execução. A publicação com IDs de demonstração deve ser bloqueada no aplicativo.</p>
+          <label for="admob-app-id">App ID do AdMob</label>
+          <input id="admob-app-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000~0000000000">
+          <p class="small">O App ID identifica o aplicativo, não uma unidade. Alterá-lo exige nova compilação e configuração Android adequada para SDK e UMP.</p>
+          <div class="admob-format">
+            <label class="admob-check"><input id="admob-banner-enabled" type="checkbox"> Ativar banner</label>
+            <label for="admob-banner-id">ID do banner</label>
+            <input id="admob-banner-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
+          </div>
+          <div class="admob-format">
+            <label class="admob-check"><input id="admob-interstitial-enabled" type="checkbox"> Ativar intersticial</label>
+            <label for="admob-interstitial-id">ID do intersticial</label>
+            <input id="admob-interstitial-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
+            <label for="admob-cooldown">Intervalo mínimo entre intersticiais (segundos)</label>
+            <input id="admob-cooldown" type="number" inputmode="numeric" min="30" max="3600" step="1" value="120">
+          </div>
+          <div class="admob-format">
+            <label class="admob-check"><input id="admob-rewarded-enabled" type="checkbox"> Ativar vídeo recompensado (voluntário)</label>
+            <label for="admob-rewarded-id">ID do vídeo recompensado</label>
+            <input id="admob-rewarded-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
+          </div>
+          <p class="small">A concessão de moedas exige confirmação do evento de recompensa e controles antifraude no aplicativo ou backend. Configurar o ID não libera moedas automaticamente.</p>
+          <button id="admob-save" type="submit" class="secondary wide" disabled>Salvar configuração AdMob no repositório</button>
+        </form>
+      </section>
       <section class="panel history">
-        <h2>3 · Assinar AAB depois do build</h2>
+        <h2>4 · Assinar AAB depois do build</h2>
         <p>O AAB é compilado sem chave e a assinatura acontece em uma execução independente, usando os segredos protegidos do repositório do aplicativo.</p>
         <form id="sign-form">
           <div class="two">
@@ -112,7 +149,7 @@
         </form>
       </section>
       <section class="panel history">
-        <div class="inline space"><div><h2>4 · Compilações e assinaturas recentes</h2><p>Acompanhe os resultados e abra os artefatos no GitHub.</p></div><button id="refresh-runs" class="secondary" disabled>Atualizar</button></div>
+        <div class="inline space"><div><h2>5 · Compilações e assinaturas recentes</h2><p>Acompanhe os resultados e abra os artefatos no GitHub.</p></div><button id="refresh-runs" class="secondary" disabled>Atualizar</button></div>
         <div id="run-list" class="run-list"><p class="small">Selecione um repositório para visualizar o histórico.</p></div>
       </section>
       <footer>Universal Build · Serviço estático, sem banco de dados e sem servidor próprio. Compilações executadas no GitHub Actions.</footer>

@@ -9,6 +9,8 @@
   const MAX_ZIP = 15 * 1024 * 1024;
   const state = { token: "", login: "", expires: 0, repos: [], repo: null };
   let repoScanId = 0;
+  let adConfigRequestId = 0;
+  let currentAdConfig = { name: "", sha: null, loaded: false };
   const $ = (id) => document.getElementById(id);
 
   function notice(message, error = false) {
@@ -29,6 +31,10 @@
     state.repo = null;
     state.repos = [];
     repoScanId++;
+    adConfigRequestId++;
+    currentAdConfig = { name: "", sha: null, loaded: false };
+    $("admob-save").disabled = true;
+    $("admob-status").textContent = "Selecione um projeto Android para carregar as configurações.";
     localStorage.removeItem(STORAGE);
     $("token").value = "";
     $("app-view").hidden = true;
@@ -226,17 +232,111 @@
     $("run-btn").disabled = !active;
     $("refresh-runs").disabled = !active;
     $("sign-btn").disabled = !active;
+    $("admob-save").disabled = true;
     $("open-repo").hidden = !active;
+    adConfigRequestId++;
+    currentAdConfig = { name: "", sha: null, loaded: false };
+    renderAdmobConfig(window.UniversalAdMobConfig.defaults());
+    $("admob-status").textContent = active ? "Carregando configurações do projeto..." :
+      "Selecione um projeto Android para carregar as configurações.";
     if (active) {
       $("open-repo").href = "https://github.com/" + state.repo.full_name;
       $("secrets-link").href = "https://github.com/" + state.repo.full_name + "/settings/secrets/actions";
       refreshRuns();
+      loadAdmobConfig(state.repo);
     } else {
       $("run-list").replaceChildren();
       const p = document.createElement("p");
       p.className = "small";
       p.textContent = "Selecione um repositório para visualizar o histórico.";
       $("run-list").append(p);
+    }
+  }
+  function renderAdmobConfig(config) {
+    $("admob-mode").value = config.mode;
+    $("admob-app-id").value = config.appId;
+    $("admob-cooldown").value = String(config.interstitialCooldownSeconds);
+    for (const format of window.UniversalAdMobConfig.formats) {
+      $("admob-" + format + "-enabled").checked = config.enabled[format];
+      $("admob-" + format + "-id").value = config.units[format];
+    }
+  }
+  function readAdmobForm() {
+    const config = window.UniversalAdMobConfig.defaults();
+    config.mode = $("admob-mode").value;
+    config.appId = $("admob-app-id").value.trim();
+    config.interstitialCooldownSeconds = Number($("admob-cooldown").value);
+    for (const format of window.UniversalAdMobConfig.formats) {
+      config.enabled[format] = $("admob-" + format + "-enabled").checked;
+      config.units[format] = $("admob-" + format + "-id").value.trim();
+    }
+    return window.UniversalAdMobConfig.normalize(config);
+  }
+  async function loadAdmobConfig(repo) {
+    const id = ++adConfigRequestId;
+    const name = repo.full_name;
+    const path = repoPath(repo) + "/contents/" + window.UniversalAdMobConfig.PATH;
+    try {
+      let file = null;
+      try {
+        file = await api(path + "?ref=" + encodeURIComponent(repo.default_branch));
+      } catch (error) {
+        if (error.status !== 404) throw error;
+      }
+      const config = file ? window.UniversalAdMobConfig.normalize(
+        JSON.parse(decodeGitHubFile(file))) : window.UniversalAdMobConfig.defaults();
+      if (id !== adConfigRequestId || !state.repo || state.repo.full_name !== name) return;
+      renderAdmobConfig(config);
+      currentAdConfig = { name, sha: file ? file.sha : null, loaded: true };
+      $("admob-save").disabled = false;
+      $("admob-status").textContent = file ?
+        "Configuração carregada do GitHub (modo: " + config.mode + ")." :
+        "Sem configuração salva. O modo padrão é desativado.";
+    } catch (error) {
+      if (id !== adConfigRequestId || !state.repo || state.repo.full_name !== name) return;
+      currentAdConfig = { name, sha: null, loaded: false };
+      $("admob-save").disabled = true;
+      $("admob-status").textContent = "Falha ao carregar; salvamento bloqueado: " + error.message;
+      notice("Não foi possível ler AdMob em " + name + ": " + error.message, true);
+    }
+  }
+  async function saveAdmobConfig(ev) {
+    ev.preventDefault();
+    const repo = selected();
+    if (!currentAdConfig.loaded || currentAdConfig.name !== repo.full_name) {
+      return notice("Carregue primeiro as configurações AdMob deste projeto.", true);
+    }
+    let config;
+    try { config = readAdmobForm(); }
+    catch (err) { return notice(err.message, true); }
+    if (!confirm("Salvar configurações AdMob em " + repo.full_name +
+        "? Isso cria um commit na branch " + repo.default_branch +
+        ". Alterações de App ID exigem nova compilação e integração Android.")) return;
+    const btn = $("admob-save");
+    btn.disabled = true;
+    const name = repo.full_name;
+    const path = repoPath(repo) + "/contents/" + window.UniversalAdMobConfig.PATH;
+    try {
+      const body = {
+        message: "config(admob): atualizar configuração de monetização",
+        content: utf8Base64(JSON.stringify(config, null, 2) + "\n"),
+        branch: repo.default_branch
+      };
+      if (currentAdConfig.sha) body.sha = currentAdConfig.sha;
+      const response = await api(path, { method: "PUT", body: JSON.stringify(body) });
+      if (state.repo && state.repo.full_name === name) {
+        currentAdConfig.sha = response.content.sha;
+        $("admob-status").textContent = "Salvo em " + name + " · modo " + config.mode +
+          ". É preciso integrar esta configuração no aplicativo e recompilar.";
+        notice("Configuração AdMob salva com sucesso no GitHub.");
+      }
+    } catch (error) {
+      if (state.repo && state.repo.full_name === name) {
+        $("admob-status").textContent = "Não foi possível salvar: " + error.message;
+        notice(error.message, true);
+      }
+    } finally {
+      btn.disabled = !state.repo || state.repo.full_name !== name || !currentAdConfig.loaded;
     }
   }
   async function createRepo(ev) {
@@ -488,6 +588,7 @@
   $("new-repo-form").addEventListener("submit", createRepo);
   $("install-btn").addEventListener("click", installWorkflow);
   $("build-form").addEventListener("submit", runBuild);
+  $("admob-form").addEventListener("submit", saveAdmobConfig);
   $("sign-form").addEventListener("submit", signBuild);
   $("refresh-runs").addEventListener("click", refreshRuns);
   document.addEventListener("visibilitychange", () => {

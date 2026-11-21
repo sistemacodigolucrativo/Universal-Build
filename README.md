@@ -29,6 +29,12 @@ O arquivo `.github/workflows/deploy-pages.yml` publica o diretório `dashboard/`
 
 [Mapeamento funcional do painel](docs/MAPEAMENTO-FUNCIONAL.md).
 
+## Configurações AdMob por aplicativo
+
+O console possui uma seção **Configurações · Monetização AdMob** para salvar, no repositório Android selecionado, os IDs do aplicativo e das unidades de anúncios, formatos habilitados, limites de frequência e modos `off` (padrão), `test` e `live`. Os dados ficam em `config/universal-build-admob.json`, versionados via GitHub; o salvamento exige confirmação do usuário.
+
+**Atenção:** esta primeira etapa é a interface de configuração, não uma integração automática ao APK. É necessário implementar a leitura do arquivo e o SDK/consentimento no Kotlin Master e em cada app derivado. Alterações de App ID exigem nova compilação. Veja [Configurações AdMob](docs/ADMOB-CONFIGURACAO.md).
+
 ## Assinatura DEPOIS da compilação
 
 - `aab-unsigned`: gera AAB sem assinatura, apropriado para uma etapa posterior de assinatura.

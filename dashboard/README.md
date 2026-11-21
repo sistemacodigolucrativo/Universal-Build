@@ -25,6 +25,10 @@ Painel sem backend/banco de dados, para uso individual. Inclui:
 
 O deploy publica **somente** a pasta `dashboard/`. O repositório e seus scripts ficam disponíveis no GitHub.
 
+## Configurar AdMob por aplicativo
+
+Selecione o aplicativo Android e abra **3 · Configurações · Monetização AdMob**. Você poderá configurar e versionar o App ID, as unidades de banner, intersticial e vídeo recompensado, o modo de teste/produção e o intervalo entre intersticiais. O console salva `config/universal-build-admob.json` no GitHub do aplicativo após sua confirmação. A configuração **não ativa anúncios no APK** sem integração Android específica e recompilação. Consulte [o contrato completo](../docs/ADMOB-CONFIGURACAO.md).
+
 ## Como assinar AAB depois de compilar
 
 1. No painel, selecione `AAB sem assinatura` (`aab-unsigned`) e inicie o build.
