@@ -85,3 +85,13 @@ Rollback:
 - **Deploy Pages:** verificar run posterior ao commit da PR #7; merge não comprova automaticamente renderização no celular. Interface autenticada, download via redirecionamento/CORS e anúncio real exigem testes manuais.
 
 Os registros anteriores neste arquivo são **snapshot histórico** anterior a esses merges, não o estado mais atual.
+
+## Atualização de promoção QR Studio — 21/11/2026
+
+- `QR-001`: [PR 6](https://github.com/sistemacodigolucrativo/QR-Studio/pull/6) mesclada em `main`; SHA de merge `3af1ba89c49e7a3802a0f04ee0aea5fb42f9a829`.
+- `ADS-003`: [PR 7](https://github.com/sistemacodigolucrativo/QR-Studio/pull/7) mesclada em `main`; SHA `de30ad8f760e83aa2e393e6a75c33a70c9402859`. Gate da branch com [teste completo](https://github.com/sistemacodigolucrativo/QR-Studio/actions/runs/44926648632) e [integração Universal Build](https://github.com/sistemacodigolucrativo/QR-Studio/actions/runs/44926649077) aprovados.
+- `ADS-004`: [PR 8](https://github.com/sistemacodigolucrativo/QR-Studio/pull/8) de banner de teste **continua separada**, com IDs de conta próprios registrados em branch experimental; **não publicar esta configuração como monetização em produção**.
+- `ADS-002`: Kotlin Master [PR 12](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/pull/12) **mesclada à `main`**, commit `c0a364eb3653ae89207cbb97d5c26bbae80f5613`, após [integração Universal Build](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/actions/runs/44926643940) e [gate Android completo](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/actions/runs/44926643754) aprovados.
+- `DOC-001`: [PR 6](https://github.com/sistemacodigolucrativo/Universal-Build/pull/6) do handoff mesclada na `main` (SHA `157bbabe692378133b4972bca40afaa5a44226cf`). UI no Pages [deploy aprovado](https://github.com/sistemacodigolucrativo/Universal-Build/actions/runs/44926916377).
+
+**Nota final:** os três repositórios Universal Build, Kotlin Master e QR Studio contêm a integração pertinente na branch principal, mas **a configuração AdMob de apps já instalados não muda sem novo APK/AAB**. Produção e downloads diretos ainda precisam de testes com navegador/dispositivo/conta reais.
