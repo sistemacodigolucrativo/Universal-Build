@@ -48,7 +48,7 @@ A nova interface ordena as etapas como **Repositório/branch → Configuração 
 - Avisos e erros temporários aparecem como toasts flutuantes.
 - Progresso é atualizado pela API do **GitHub Actions**; representa etapas reportadas, **não** um percentual interno do Gradle.
 - APK/AAB são listados no painel e baixados diretamente quando o navegador permite; o fallback pode ser ZIP ou download via GitHub.
-- O console só fornece configurações: AdMob nativo requer módulo Android no app e nova compilação. `main` do Kotlin Master/QR pode estar atrás das PRs de integração.
+- O console só fornece configurações: AdMob nativo requer módulo Android no app e nova compilação. O Kotlin Master e o QR Studio receberam o módulo em `main` em 21/11/2026; outros apps derivados **não recebem automaticamente** essa mudança.
 
 [Manual completo da nova interface](docs/CONSOLE-UX-ADMOB-PROGRESSO.md).
 
