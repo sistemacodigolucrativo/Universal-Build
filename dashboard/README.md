@@ -29,6 +29,18 @@ O deploy publica **somente** a pasta `dashboard/`. O repositório e seus scripts
 
 Selecione o aplicativo Android e abra **3 · Configurações · Monetização AdMob**. Você poderá configurar e versionar o App ID, as unidades de banner, intersticial e vídeo recompensado, o modo de teste/produção e o intervalo entre intersticiais. O console salva `config/universal-build-admob.json` no GitHub do aplicativo após sua confirmação. A configuração **não ativa anúncios no APK** sem integração Android específica e recompilação. Consulte [o contrato completo](../docs/ADMOB-CONFIGURACAO.md).
 
+## Ordem do console, branches e downloads
+
+O fluxo atual é: **1 Repositório e branch → 2 AdMob → 3 Configurar compilação → 4 Progresso e downloads → 5 Assinar AAB**.
+
+A branch selecionada determina tanto onde `config/universal-build-admob.json` é salvo quanto o `ref` do build solicitado. A instalação/atualização de workflows permanece na **branch padrão** e precisa de confirmação; o workflow de dispatch deve existir na branch padrão do app.
+
+Todas as notificações temporárias do painel usam **toasts**. O andamento é consultado automaticamente pelo GitHub Actions a cada 12 segundos quando o painel está visível. A barra indica **etapas do workflow**, e não progresso exato do compilador Gradle.
+
+Os artifacts de um run bem-sucedido ficam listados no próprio painel, com botões para baixar. O GitHub fornece ZIP; quando houver um só APK/AAB e o navegador suportar descompactação, o console entrega diretamente esse binário. Se houver vários arquivos ou limitações do browser, o ZIP é baixado. Em caso de restrição CORS, abra **Ver logs no GitHub** e baixe no Actions. Artefatos expiram conforme retention policy do workflow.
+
+Leia [o guia completo de implementação e limites](../docs/CONSOLE-UX-ADMOB-PROGRESSO.md).
+
 ## Como assinar AAB depois de compilar
 
 1. No painel, selecione `AAB sem assinatura` (`aab-unsigned`) e inicie o build.
