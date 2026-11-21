@@ -15,6 +15,7 @@
   let lastDispatch = null;
   const activeDownloads = new Set();
   const artifactsByRun = new Map();
+  const knownRunIds = new Map();
   let currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
   const $ = (id) => document.getElementById(id);
 
@@ -61,6 +62,7 @@
     currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
     lastDispatch = null;
     artifactsByRun.clear();
+    knownRunIds.clear();
     $("branch-select").replaceChildren(new Option("Selecione primeiro um repositório", ""));
     $("branch-select").disabled = true;
     $("build-progress").hidden = true;
@@ -302,6 +304,8 @@
     refreshRequestId++;
     lastDispatch = null;
     artifactsByRun.clear();
+    // The previous repository must never leave stale artifact buttons on screen.
+    $("run-list").replaceChildren();
     $("build-progress").hidden = true;
     currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
     renderAdmobConfig(window.UniversalAdMobConfig.defaults());
@@ -335,6 +339,8 @@
     $("admob-status").textContent = "Carregando configurações da branch " + selectedBranch() + "...";
     $("build-progress").hidden = true;
     lastDispatch = null;
+    // Invalidate artifacts belonging to the previously selected branch immediately.
+    $("run-list").replaceChildren();
     loadAdmobConfig(state.repo);
     refreshRuns();
   }
@@ -577,7 +583,10 @@
         }
       }
       if (error) throw error;
-      lastDispatch = { repo: repo.full_name, branch, at: Date.now() };
+      lastDispatch = { repo: repo.full_name, branch, at: Date.now(),
+        knownRunIds: (knownRunIds.get(repo.full_name + "/" + branch) || []).slice() };
+      // Hide previous build artifacts before the next GitHub API response arrives.
+      $("run-list").querySelectorAll(".artifact-line").forEach(line => line.remove());
       $("build-progress").hidden = false;
       $("build-progress-title").textContent = "Solicitação enviada · aguardando GitHub Actions";
       $("build-progress-bar").removeAttribute("value");
@@ -664,22 +673,15 @@
     return "Artefato da execução";
   }
 
-  function displayPrimaryProgress(runs, details, repo, branch) {
+  function displayPrimaryProgress(selection, details, branch) {
     const box = $("build-progress");
-    const pending = lastDispatch && lastDispatch.repo === repo.full_name &&
-      lastDispatch.branch === branch && Date.now() - lastDispatch.at < 120000;
-    const dispatchedRuns = pending ?
-      runs.filter(run => new Date(run.created_at).getTime() >= lastDispatch.at - 10000) : [];
-    const current = pending ?
-      (dispatchedRuns.find(run => run.status !== "completed") || dispatchedRuns[0]) :
-      (runs.find(run => run.status !== "completed") || runs[0]);
+    const current = selection.current;
     if (!current) {
-      if (lastDispatch && lastDispatch.repo === repo.full_name &&
-          lastDispatch.branch === branch && Date.now() - lastDispatch.at < 120000) {
+      if (selection.pending) {
         box.hidden = false;
         $("build-progress-title").textContent = "Aguardando início do workflow na branch " + branch;
         $("build-progress-bar").removeAttribute("value");
-        $("build-progress-label").textContent = "O GitHub ainda não disponibilizou as etapas.";
+        $("build-progress-label").textContent = "O GitHub ainda não disponibilizou uma execução nova.";
       } else {
         box.hidden = true;
       }
@@ -694,7 +696,7 @@
     else $("build-progress-bar").value = data.percent;
     $("build-progress-label").textContent = data.total ?
       data.done + "/" + data.total + " etapas concluídas · dados do GitHub Actions, não do Gradle." :
-      "Aguardando etapas do GitHub Actions; atualização automática.";
+      "Aguardando detalhes das etapas no GitHub Actions; atualização automática.";
   }
 
   async function refreshRuns() {
@@ -738,8 +740,11 @@
       }));
       if (request !== refreshRequestId || !state.repo ||
           state.repo.full_name !== repo.full_name || selectedBranch(repo) !== branch) return;
+      knownRunIds.set(repo.full_name + "/" + branch, runs.map(run => run.id));
       const details = new Map(progressRows);
-      displayPrimaryProgress(runs, details, repo, branch);
+      const selection = window.UniversalBuildProgress.selectCurrentRun(
+        runs, lastDispatch, repo.full_name, branch);
+      displayPrimaryProgress(selection, details, branch);
       const fragment = document.createDocumentFragment();
       if (!runs.length) {
         const p = document.createElement("p");
@@ -779,7 +784,8 @@
           timed_out: "Tempo esgotado", action_required: "Ação necessária"
         })[statusValue] || statusValue;
         row.append(main, badge);
-        if (statusValue === "success") {
+        // Keep old runs visible for logs, but never offer artifacts from a previous run.
+        if (statusValue === "success" && selection.current?.id === run.id) {
           try {
             let response = artifactsByRun.get(repo.full_name + "/" + run.id);
             if (!response) {
