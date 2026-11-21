@@ -657,6 +657,7 @@
   function artifactDescription(artifact) {
     const name = artifact.name.toLowerCase();
     if (name.includes("both-unsigned")) return "APK + AAB sem assinatura";
+    if (name.includes("unsigned")) return "AAB sem assinatura";
     if (name.includes("signed") || name.includes("assinado")) return "AAB de release assinado";
     if (name.includes("aab") || name.includes("bundle")) return "Bundle AAB";
     if (name.includes("apk")) return "APK instalável";
