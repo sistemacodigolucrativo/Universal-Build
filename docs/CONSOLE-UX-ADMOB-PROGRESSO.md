@@ -19,7 +19,7 @@ A ação **Instalar ou atualizar workflows** continua escrevendo na **branch pad
 ## Como usar no Android (fluxo de teste)
 
 1. Selecione o repositório **QR-Studio** (ou outro app com módulo AdMob já integrado).
-2. Selecione a branch que contém o código funcional, como `experiment/admob-test-banner`, e **não** a `main` se esta ainda contém o template.
+2. Para testar o banner demonstrativo, selecione `experiment/admob-test-banner`. A `main` do QR Studio já contém o aplicativo funcional e o módulo AdMob, mas sua configuração padrão é `mode=off` (sem anúncio ativo).
 3. No card AdMob escolha `mode=test`, ative apenas **Banner** e, se desejar, registre seu App ID e a unidade do banner. **O APK de desenvolvimento usa IDs de demonstração oficiais, mesmo se os IDs salvos forem reais.**
 4. Salve a configuração na branch selecionada. Essa ação **não ativa anúncios no APK já instalado**.
 5. Selecione build `APK de testes`, flavor `auto`, diretório `.`, módulo `app`, JDK 17; inicie.
@@ -45,7 +45,7 @@ Avisos temporários e erros usam toasts flutuantes, com controle de fechar, auto
 
 ### AdMob e compatibilidade cross-repo
 
-O painel salva só **JSON no repositório do app**, não instala SDK por conta própria. O módulo `:core:ads` é implementado na [PR 12 do Kotlin Master](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/pull/12) e usado no [QR-Studio PR 7](https://github.com/sistemacodigolucrativo/QR-Studio/pull/7). Em 21/11/2026, o QR Studio teve as PRs 6 (MVP) e 7 (AdMob) mescladas à `main`; a PR 12 do Kotlin Master ainda depende da promoção após gate final. A [PR 8](https://github.com/sistemacodigolucrativo/QR-Studio/pull/8) habilita banner de teste.
+O painel salva só **JSON no repositório do app**, não instala SDK por conta própria. O módulo `:core:ads` é implementado na [PR 12 do Kotlin Master](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/pull/12) e usado no [QR-Studio PR 7](https://github.com/sistemacodigolucrativo/QR-Studio/pull/7). Em 21/11/2026, o QR Studio teve as PRs 6 (MVP) e 7 (AdMob) mescladas à `main`; a PR 12 do Kotlin Master também foi mesclada à `main` após gate final aprovado. A [PR 8](https://github.com/sistemacodigolucrativo/QR-Studio/pull/8) habilita banner de teste.
 
 No código proposto, `dev/staging` usam os IDs demonstrativos e `prod` somente `mode=live` pode usar IDs reais. A seleção de formatos no painel **não cria automaticamente gatilhos de intersticial ou de vídeo recompensado**; pontos de exibição e consentimento devem ser implementados no app. Alterações no App ID exigem nova compilação. A produção requer aprovação do usuário, privacidade, Google UMP e exigências da conta/loja.
 
