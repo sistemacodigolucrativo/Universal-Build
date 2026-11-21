@@ -304,6 +304,8 @@
     refreshRequestId++;
     lastDispatch = null;
     artifactsByRun.clear();
+    // The previous repository must never leave stale artifact buttons on screen.
+    $("run-list").replaceChildren();
     $("build-progress").hidden = true;
     currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
     renderAdmobConfig(window.UniversalAdMobConfig.defaults());
@@ -337,6 +339,8 @@
     $("admob-status").textContent = "Carregando configurações da branch " + selectedBranch() + "...";
     $("build-progress").hidden = true;
     lastDispatch = null;
+    // Invalidate artifacts belonging to the previously selected branch immediately.
+    $("run-list").replaceChildren();
     loadAdmobConfig(state.repo);
     refreshRuns();
   }
@@ -581,6 +585,8 @@
       if (error) throw error;
       lastDispatch = { repo: repo.full_name, branch, at: Date.now(),
         knownRunIds: (knownRunIds.get(repo.full_name + "/" + branch) || []).slice() };
+      // Hide previous build artifacts before the next GitHub API response arrives.
+      $("run-list").querySelectorAll(".artifact-line").forEach(line => line.remove());
       $("build-progress").hidden = false;
       $("build-progress-title").textContent = "Solicitação enviada · aguardando GitHub Actions";
       $("build-progress-bar").removeAttribute("value");
