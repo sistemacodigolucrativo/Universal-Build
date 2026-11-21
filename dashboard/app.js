@@ -14,6 +14,7 @@
   let refreshRequestId = 0;
   let lastDispatch = null;
   const activeDownloads = new Set();
+  const artifactsByRun = new Map();
   let currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
   const $ = (id) => document.getElementById(id);
 
@@ -59,6 +60,7 @@
     refreshRequestId++;
     currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
     lastDispatch = null;
+    artifactsByRun.clear();
     $("branch-select").replaceChildren(new Option("Selecione primeiro um repositório", ""));
     $("branch-select").disabled = true;
     $("build-progress").hidden = true;
@@ -299,6 +301,7 @@
     branchRequestId++;
     refreshRequestId++;
     lastDispatch = null;
+    artifactsByRun.clear();
     $("build-progress").hidden = true;
     currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
     renderAdmobConfig(window.UniversalAdMobConfig.defaults());
@@ -774,7 +777,12 @@
         row.append(main, badge);
         if (statusValue === "success") {
           try {
-            const response = await api(repoPath(repo) + "/actions/runs/" + run.id + "/artifacts?per_page=100");
+            let response = artifactsByRun.get(repo.full_name + "/" + run.id);
+            if (!response) {
+              response = await api(repoPath(repo) + "/actions/runs/" + run.id + "/artifacts?per_page=100");
+              artifactsByRun.set(repo.full_name + "/" + run.id, response);
+              if (artifactsByRun.size > 120) artifactsByRun.delete(artifactsByRun.keys().next().value);
+            }
             if (request !== refreshRequestId || !state.repo ||
                 state.repo.full_name !== repo.full_name || selectedBranch(repo) !== branch) return;
             for (const artifact of response.artifacts || []) {
