@@ -135,6 +135,8 @@ test("console UI is wired to real Actions jobs and artifact download", () => {
   assert.match(js, /function selectedBranch/);
   assert.match(js, /function notice\(/);
   assert.match(js, /selectCurrentRun\(/);
+  assert.match(js, /querySelectorAll\("\.artifact-line"\)/);
+  assert.match(js, /"run-list"\)\.replaceChildren\(\)/);
   assert.match(js, /statusValue === "success" && selection\.current\?\.id === run\.id/);
   assert.ok(html.indexOf("2 · Monetização") < html.indexOf("3 · Configurar"));
   assert.ok(html.indexOf("3 · Configurar") < html.indexOf("4 · Progresso"));
