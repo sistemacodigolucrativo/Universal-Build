@@ -9,7 +9,9 @@ Projetos Android Gradle (Java, Kotlin e Jetpack Compose), Flutter e React Native
 | `apk` | APK debug | Testar diretamente no Android |
 | `aab` | AAB release assinado | Publicar na Google Play |
 | `both` | APK debug + AAB release | Testar e publicar |
-| `aab-unsigned` | AAB sem assinatura | Assinar após o build |\n| `both-unsigned` | APK debug + AAB sem assinatura | Testar e assinar depois |\n| `release-apk` | APK release assinado | Distribuição fora da Play Store |
+| `aab-unsigned` | AAB sem assinatura | Assinar após o build |
+| `both-unsigned` | APK debug + AAB sem assinatura | Testar e assinar depois |
+| `release-apk` | APK release assinado | Distribuição fora da Play Store |
 
 > **Google Play:** apps novos exigem AAB (não APK). Em novembro/2026, apps novos/atualizados para celulares devem direcionar a API 36+ (com exceções para outras plataformas). O Universal Build verifica assinatura, target SDK e versionCode no AAB gerado. Um build bem-sucedido não significa aprovação automática na loja.
 
@@ -34,6 +36,18 @@ O arquivo `.github/workflows/deploy-pages.yml` publica o diretório `dashboard/`
 O console possui uma seção **Configurações · Monetização AdMob** para salvar, no repositório Android selecionado, os IDs do aplicativo e das unidades de anúncios, formatos habilitados, limites de frequência e modos `off` (padrão), `test` e `live`. Os dados ficam em `config/universal-build-admob.json`, versionados via GitHub; o salvamento exige confirmação do usuário.
 
 **Atenção:** esta primeira etapa é a interface de configuração, não uma integração automática ao APK. É necessário implementar a leitura do arquivo e o SDK/consentimento no Kotlin Master e em cada app derivado. Alterações de App ID exigem nova compilação. Veja [Configurações AdMob](docs/ADMOB-CONFIGURACAO.md).
+
+## Console 2.0 — AdMob, toasts, progresso e downloads
+
+A nova interface ordena as etapas como **Repositório/branch → Configuração AdMob → Compilação → Progresso e downloads → Assinatura**.
+
+- Configurações AdMob são persistidas por **aplicativo e branch** em `config/universal-build-admob.json`, com modos `off/test/live` e formatos individuais.
+- Avisos e erros temporários aparecem como toasts flutuantes.
+- Progresso é atualizado pela API do **GitHub Actions**; representa etapas reportadas, **não** um percentual interno do Gradle.
+- APK/AAB são listados no painel e baixados diretamente quando o navegador permite; o fallback pode ser ZIP ou download via GitHub.
+- O console só fornece configurações: AdMob nativo requer módulo Android no app e nova compilação. `main` do Kotlin Master/QR pode estar atrás das PRs de integração.
+
+[Manual completo da nova interface](docs/CONSOLE-UX-ADMOB-PROGRESSO.md).
 
 ## Assinatura DEPOIS da compilação
 
