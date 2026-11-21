@@ -75,3 +75,13 @@ Rollback:
 3. Identificar última entrega cronológica **por commit e run**, não pela ordem de mensagens do chat.
 4. Atualizar a tabela deste arquivo em PR se houver mudança constatada.
 5. Solicitar autorização para merges, releases, deploy ou produção quando essas ações não foram explicitamente solicitadas.
+
+## Atualização posterior — 21/11/2026
+
+- **UB-ADS painel:** [PR #5](https://github.com/sistemacodigolucrativo/Universal-Build/pull/5) mesclada em `main`, commit `07e1d8dd224e8d3b7d98b9a47edda3da0d31fabc`.
+- **UB-UX console:** [PR #7](https://github.com/sistemacodigolucrativo/Universal-Build/pull/7) mesclada em `main`, commit `167d70f0068e3f767322b60b548f4b5ce77a3978`. Inclui AdMob por branch, toasts, progresso real de **etapas** e downloads com fallback ZIP/Actions.
+- **Documentação funcional:** [docs/CONSOLE-UX-ADMOB-PROGRESSO.md](../CONSOLE-UX-ADMOB-PROGRESSO.md).
+- **Kotlin Master / QR Studio:** contrato JSON padrão `off`, teste Python de schema/integração Gradle e README atualizado nas branches `feature/universal-admob-native` desses repositórios. **Não declarar `main` nativa atualizada antes de confirmar os merges e CI finais**.
+- **Deploy Pages:** verificar run posterior ao commit da PR #7; merge não comprova automaticamente renderização no celular. Interface autenticada, download via redirecionamento/CORS e anúncio real exigem testes manuais.
+
+Os registros anteriores neste arquivo são **snapshot histórico** anterior a esses merges, não o estado mais atual.
