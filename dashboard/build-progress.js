@@ -24,5 +24,23 @@
       total > 0 ? Math.min(95, Math.floor(done / total * 100)) : null;
     return { status, active, stage, done, total, percent };
   }
-  return { summarize };
+  // Use one GitHub workflow run as the source of truth for both progress and downloads.
+  // GitHub can report created_at slightly before dispatch; known run IDs take precedence.
+  function selectCurrentRun(runs, dispatch, repoName, branch, now = Date.now()) {
+    const history = Array.isArray(runs) ? runs : [];
+    const pending = !!(dispatch && dispatch.repo === repoName &&
+      dispatch.branch === branch && now - dispatch.at >= 0 &&
+      now - dispatch.at < 120000);
+    const candidates = pending ? history.filter(run => {
+      const unseen = Array.isArray(dispatch.knownRunIds) &&
+        !dispatch.knownRunIds.includes(run.id);
+      return unseen || new Date(run.created_at).getTime() >= dispatch.at - 10000;
+    }) : history;
+    const active = run => run.status !== "completed";
+    const current = pending ?
+      (candidates.find(active) || candidates[0] || history.find(active) || null) :
+      (history.find(active) || history[0] || null);
+    return { current, pending };
+  }
+  return { summarize, selectCurrentRun };
 });
