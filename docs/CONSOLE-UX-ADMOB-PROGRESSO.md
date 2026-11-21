@@ -45,7 +45,7 @@ Avisos temporários e erros usam toasts flutuantes, com controle de fechar, auto
 
 ### AdMob e compatibilidade cross-repo
 
-O painel salva só **JSON no repositório do app**, não instala SDK por conta própria. O módulo `:core:ads` é implementado na [PR 12 do Kotlin Master](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/pull/12) e usado no [QR-Studio PR 7](https://github.com/sistemacodigolucrativo/QR-Studio/pull/7). Em novembro/2026, ambas são PRs e não devem ser confundidas com `main`. A [PR 8](https://github.com/sistemacodigolucrativo/QR-Studio/pull/8) habilita banner de teste.
+O painel salva só **JSON no repositório do app**, não instala SDK por conta própria. O módulo `:core:ads` é implementado na [PR 12 do Kotlin Master](https://github.com/sistemacodigolucrativo/Kotlin-Master-Boilerplate/pull/12) e usado no [QR-Studio PR 7](https://github.com/sistemacodigolucrativo/QR-Studio/pull/7). Em 21/11/2026, o QR Studio teve as PRs 6 (MVP) e 7 (AdMob) mescladas à `main`; a PR 12 do Kotlin Master ainda depende da promoção após gate final. A [PR 8](https://github.com/sistemacodigolucrativo/QR-Studio/pull/8) habilita banner de teste.
 
 No código proposto, `dev/staging` usam os IDs demonstrativos e `prod` somente `mode=live` pode usar IDs reais. A seleção de formatos no painel **não cria automaticamente gatilhos de intersticial ou de vídeo recompensado**; pontos de exibição e consentimento devem ser implementados no app. Alterações no App ID exigem nova compilação. A produção requer aprovação do usuário, privacidade, Google UMP e exigências da conta/loja.
 
