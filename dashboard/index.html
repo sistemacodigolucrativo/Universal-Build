@@ -10,15 +10,17 @@
   <link rel="stylesheet" href="./style.css">
   <script defer src="./android-repos.js"></script>
   <script defer src="./admob-config.js"></script>
+  <script defer src="./build-progress.js"></script>
+  <script defer src="./artifact-download.js"></script>
   <script defer src="./app.js"></script>
 </head>
 <body>
+  <div id="toast-stack" class="toast-stack" aria-live="polite" aria-relevant="additions"></div>
   <main class="layout">
     <header class="top">
       <div class="brand"><div class="mark">UB</div><div><strong>Universal Build</strong><small>Android CI/CD Console</small></div></div>
       <a class="headlink" href="https://github.com/sistemacodigolucrativo/Universal-Build" target="_blank" rel="noopener noreferrer">Repositório ↗</a>
     </header>
-    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
     <section id="login-view" class="panel auth">
       <span class="eyebrow">Acesso individual</span>
       <h1>Conecte seu GitHub</h1>
@@ -43,6 +45,9 @@
           <p>A lista exibe somente repositórios com estrutura Android verificável (Gradle e AndroidManifest.xml). Projetos apenas web não aparecem.</p>
           <label for="repo-select">Projetos disponíveis</label>
           <select id="repo-select"><option value="">Selecione um projeto Android</option></select>
+          <label for="branch-select">Branch para AdMob e compilação</label>
+          <select id="branch-select" disabled><option value="">Selecione primeiro um repositório</option></select>
+          <p class="small">Use a branch de desenvolvimento para testar o AdMob sem alterar a main do aplicativo. Workflows de dispatch precisam existir na branch padrão.</p>
           <div class="inline"><button id="refresh-repos" class="secondary">Atualizar lista</button><a id="open-repo" href="#" target="_blank" rel="noopener noreferrer" hidden>Ver no GitHub ↗</a></div>
           <hr>
           <details>
@@ -59,8 +64,47 @@
           <button id="install-btn" class="secondary wide" disabled>Instalar ou atualizar workflows do projeto</button>
           <p class="small">Esta ação instala os workflows <code>universal-build.yml</code> e <code>universal-sign.yml</code> no repositório selecionado. Não altera o código do aplicativo.</p>
         </section>
-        <section class="panel">
-          <h2>2 · Configurar compilação</h2>
+      <section class="panel" id="admob-settings">
+        <h2>2 · Monetização · Google AdMob</h2>
+        <p>Configure as unidades de anúncios do projeto selecionado. As alterações são salvas no GitHub e só afetam o aplicativo quando ele estiver integrado ao contrato e receber uma nova compilação.</p>
+        <p class="small" id="admob-status" role="status" aria-live="polite">Selecione um projeto Android para carregar as configurações.</p>
+        <form id="admob-form">
+          <p class="small">Configuração salva na <strong>branch selecionada</strong>, não automaticamente na branch principal. O APK só incorpora as escolhas após uma nova compilação.</p>
+          <label for="admob-mode">Modo de anúncios</label>
+          <select id="admob-mode">
+            <option value="off">Desativado (padrão)</option>
+            <option value="test">Teste (unidades demonstrativas Google)</option>
+            <option value="live">Produção (IDs próprios)</option>
+          </select>
+          <p class="small">Em teste, os IDs demonstrativos oficiais substituem os cadastrados durante a execução. A publicação com IDs de demonstração deve ser bloqueada no aplicativo.</p>
+          <label for="admob-app-id">App ID do AdMob</label>
+          <input id="admob-app-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000~0000000000">
+          <p class="small">O App ID identifica o aplicativo, não uma unidade. Alterá-lo exige nova compilação e configuração Android adequada para SDK e UMP.</p>
+          <div class="admob-format">
+            <label class="admob-check"><input id="admob-banner-enabled" type="checkbox"> Ativar banner</label>
+            <label for="admob-banner-id">ID do banner</label>
+            <input id="admob-banner-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
+          </div>
+          <div class="admob-format">
+            <label class="admob-check"><input id="admob-interstitial-enabled" type="checkbox"> Ativar intersticial</label>
+            <label for="admob-interstitial-id">ID do intersticial</label>
+            <input id="admob-interstitial-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
+            <label for="admob-cooldown">Intervalo mínimo entre intersticiais (segundos)</label>
+            <input id="admob-cooldown" type="number" inputmode="numeric" min="30" max="3600" step="1" value="120">
+          </div>
+          <div class="admob-format">
+            <label class="admob-check"><input id="admob-rewarded-enabled" type="checkbox"> Ativar vídeo recompensado (voluntário)</label>
+            <label for="admob-rewarded-id">ID do vídeo recompensado</label>
+            <input id="admob-rewarded-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
+          </div>
+          <p class="small">A concessão de moedas exige confirmação do evento de recompensa e controles antifraude no aplicativo ou backend. Configurar o ID não libera moedas automaticamente.</p>
+          <button id="admob-save" type="submit" class="secondary wide" disabled>Salvar configuração AdMob no repositório</button>
+        </form>
+      </section>
+      </div>
+        <section class="panel history">
+          <h2>3 · Configurar e compilar</h2>
+          <p class="small">A compilação usará a branch escolhida no primeiro card. Modificações nos IDs de anúncios exigem novo APK/AAB.</p>
           <form id="build-form">
             <label for="build-target">Tipo de build</label>
             <select id="build-target">
@@ -96,49 +140,21 @@
             <button id="run-btn" type="submit" class="primary wide" disabled>Iniciar build</button>
           </form>
         </section>
-      </div>
-      <section class="panel history" id="admob-settings">
-        <h2>3 · Configurações · Monetização AdMob</h2>
-        <p>Configure as unidades de anúncios do projeto selecionado. As alterações são salvas no GitHub e só afetam o aplicativo quando ele estiver integrado ao contrato e receber uma nova compilação.</p>
-        <p class="small" id="admob-status" role="status" aria-live="polite">Selecione um projeto Android para carregar as configurações.</p>
-        <form id="admob-form">
-          <label for="admob-mode">Modo de anúncios</label>
-          <select id="admob-mode">
-            <option value="off">Desativado (padrão)</option>
-            <option value="test">Teste (unidades demonstrativas Google)</option>
-            <option value="live">Produção (IDs próprios)</option>
-          </select>
-          <p class="small">Em teste, os IDs demonstrativos oficiais substituem os cadastrados durante a execução. A publicação com IDs de demonstração deve ser bloqueada no aplicativo.</p>
-          <label for="admob-app-id">App ID do AdMob</label>
-          <input id="admob-app-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000~0000000000">
-          <p class="small">O App ID identifica o aplicativo, não uma unidade. Alterá-lo exige nova compilação e configuração Android adequada para SDK e UMP.</p>
-          <div class="admob-format">
-            <label class="admob-check"><input id="admob-banner-enabled" type="checkbox"> Ativar banner</label>
-            <label for="admob-banner-id">ID do banner</label>
-            <input id="admob-banner-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
-          </div>
-          <div class="admob-format">
-            <label class="admob-check"><input id="admob-interstitial-enabled" type="checkbox"> Ativar intersticial</label>
-            <label for="admob-interstitial-id">ID do intersticial</label>
-            <input id="admob-interstitial-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
-            <label for="admob-cooldown">Intervalo mínimo entre intersticiais (segundos)</label>
-            <input id="admob-cooldown" type="number" inputmode="numeric" min="30" max="3600" step="1" value="120">
-          </div>
-          <div class="admob-format">
-            <label class="admob-check"><input id="admob-rewarded-enabled" type="checkbox"> Ativar vídeo recompensado (voluntário)</label>
-            <label for="admob-rewarded-id">ID do vídeo recompensado</label>
-            <input id="admob-rewarded-id" autocomplete="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
-          </div>
-          <p class="small">A concessão de moedas exige confirmação do evento de recompensa e controles antifraude no aplicativo ou backend. Configurar o ID não libera moedas automaticamente.</p>
-          <button id="admob-save" type="submit" class="secondary wide" disabled>Salvar configuração AdMob no repositório</button>
-        </form>
+      <section class="panel history">
+        <div class="inline space"><div><h2>4 · Progresso, compilações e downloads</h2><p>Acompanhe etapas de execução e baixe APK, AAB ou ZIP diretamente quando o navegador permitir.</p></div><button id="refresh-runs" class="secondary" disabled>Atualizar</button></div>
+        <div id="build-progress" class="build-progress" role="status" aria-live="polite" hidden>
+          <strong id="build-progress-title">Aguardando build</strong>
+          <progress id="build-progress-bar" max="100"></progress>
+          <p id="build-progress-label" class="small">Etapas observadas pelo GitHub Actions — não é porcentagem real do compilador.</p>
+        </div>
+        <div id="run-list" class="run-list"><p class="small">Selecione um repositório para visualizar o histórico.</p></div>
       </section>
       <section class="panel history">
-        <h2>4 · Assinar AAB depois do build</h2>
-        <p>O AAB é compilado sem chave e a assinatura acontece em uma execução independente, usando os segredos protegidos do repositório do aplicativo.</p>
+        <h2>5 · Assinatura · somente após compilar</h2>
+        <p>Escolha um AAB sem assinatura na lista de downloads acima. A assinatura acontece em uma execução independente, usando os segredos protegidos do repositório do aplicativo.</p>
         <form id="sign-form">
           <div class="two">
-            <div><label for="sign-run-id">Número da execução (Run ID)</label><input id="sign-run-id" required inputmode="numeric" pattern="[0-9]+" placeholder="Ex.: 44784533268"></div>
+            <div><label for="sign-run-id">Número da execução de origem (Run ID)</label><input id="sign-run-id" required inputmode="numeric" pattern="[0-9]+" placeholder="Ex.: 44784533268"></div>
             <div><label for="sign-artifact">Nome do artefato unsigned</label><input id="sign-artifact" required pattern="[A-Za-z0-9._-]+" placeholder="Android-app-12-aab-unsigned"></div>
           </div>
           <div class="inline">
@@ -147,10 +163,6 @@
           </div>
           <p class="small">Antes do primeiro AAB real, cadastre ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS e ANDROID_KEY_PASSWORD em Settings → Secrets and variables → Actions do aplicativo. Nunca os informe neste painel.</p>
         </form>
-      </section>
-      <section class="panel history">
-        <div class="inline space"><div><h2>5 · Compilações e assinaturas recentes</h2><p>Acompanhe os resultados e abra os artefatos no GitHub.</p></div><button id="refresh-runs" class="secondary" disabled>Atualizar</button></div>
-        <div id="run-list" class="run-list"><p class="small">Selecione um repositório para visualizar o histórico.</p></div>
       </section>
       <footer>Universal Build · Serviço estático, sem banco de dados e sem servidor próprio. Compilações executadas no GitHub Actions.</footer>
     </section>
