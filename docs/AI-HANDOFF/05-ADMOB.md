@@ -1,5 +1,8 @@
 # 05 — AdMob: configuração centralizada, módulo nativo e operação segura
 
+> **Estado mais recente (21/11/2026):** Universal Build #5/#7 **mescladas e GitHub Pages implantado** (run [44926916377](https://github.com/sistemacodigolucrativo/Universal-Build/actions/runs/44926916377)). QR Studio MVP #6 e AdMob #7 **mescladas à main**, com gates Android aprovados na branch de integração. Kotlin Master AdMob #12: **aguardando gate final para merge**. PR 8 no QR Studio é somente experimento de banner de teste, não publicada em main. Valores e deploys devem ser verificados novamente em cada retomada.
+
+
 > **Atualização operacional em 21/11/2026:** as PRs [Universal Build #5](https://github.com/sistemacodigolucrativo/Universal-Build/pull/5) e [#7](https://github.com/sistemacodigolucrativo/Universal-Build/pull/7) foram **mescladas à `main`**. A interface de AdMob permite escolher a branch para gravar configurações e despachar builds; também oferece toasts, progresso de etapas e downloads. Conferir [manual novo](../CONSOLE-UX-ADMOB-PROGRESSO.md) e o último run do GitHub Pages antes de afirmar que está publicado. As integrações Android no Kotlin Master e QR Studio continuam sujeitas a PRs e seus testes.
 
 **Retrato verificado em 21/11/2026.** A interface AdMob do Universal Build e a integração Android estão em **PRs separadas**, ainda não em `main`. Revalidar estado no GitHub antes de executar ou anunciar a função ao usuário.
