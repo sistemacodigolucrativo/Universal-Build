@@ -665,10 +665,13 @@
 
   function displayPrimaryProgress(runs, details, repo, branch) {
     const box = $("build-progress");
-    const current = runs.find(run => run.status !== "completed") ||
-      runs.find(run => lastDispatch && run.head_branch === lastDispatch.branch &&
-        new Date(run.created_at).getTime() >= lastDispatch.at - 120000) ||
-      runs[0];
+    const pending = lastDispatch && lastDispatch.repo === repo.full_name &&
+      lastDispatch.branch === branch && Date.now() - lastDispatch.at < 120000;
+    const dispatchedRuns = pending ?
+      runs.filter(run => new Date(run.created_at).getTime() >= lastDispatch.at - 10000) : [];
+    const current = pending ?
+      (dispatchedRuns.find(run => run.status !== "completed") || dispatchedRuns[0]) :
+      (runs.find(run => run.status !== "completed") || runs[0]);
     if (!current) {
       if (lastDispatch && lastDispatch.repo === repo.full_name &&
           lastDispatch.branch === branch && Date.now() - lastDispatch.at < 120000) {
