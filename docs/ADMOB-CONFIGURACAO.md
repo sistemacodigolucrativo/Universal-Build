@@ -4,7 +4,7 @@
 
 No console Universal Build, conecte o GitHub, selecione um repositório Android e abra **3 · Configurações · Monetização AdMob**. O formulário lê e grava `config/universal-build-admob.json` **no repositório Android e na branch selecionados**. A gravação cria um commit nessa branch, com confirmação explícita do operador. A instalação dos workflows, diferentemente, atua na branch padrão e requer confirmação.
 
-O console é uma aplicação web estática: **não possui backend de monetização, nem instala SDK Android por alterar esse JSON**. O módulo nativo `:core:ads` e a configuração Gradle já foram implementados como propostas na PR 12 do Kotlin Master e PR 7 do QR Studio (ver links abaixo), mas não se deve pressupor que estejam em `main` ou instalados em todos os aplicativos derivados. **Sem integração Android no app/branch compilada, salvar JSON é apenas configuração persistida e versionada.**
+O console é uma aplicação web estática: **não possui backend de monetização, nem instala SDK Android por alterar esse JSON**. O módulo nativo `:core:ads` e a configuração Gradle foram implementados em projetos Android: a PR 7 do QR Studio foi mesclada à `main` em 21/11/2026, enquanto a PR 12 do Kotlin Master ainda depende de gate final/merge. Não se deve presumir que todos os aplicativos derivados receberam essas alterações automaticamente. **Sem integração Android no app/branch compilada, salvar JSON é apenas configuração persistida e versionada.**
 
 ## Formato do arquivo
 
