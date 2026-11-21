@@ -90,3 +90,14 @@ Documentação evolui **junto com a PR**. Para cada funcionalidade:
 5. Validar links relativos, comandos e correspondência com a branch real.
 
 **Responsabilidade compartilhada:** este manual é a memória versionada de como trabalhar; o histórico completo de cada app vive prioritariamente no repositório próprio desse aplicativo.
+
+## Gate adicional — console 2.0
+
+- [ ] Branch escolhida no console equivale à branch onde `config/universal-build-admob.json` foi salva e ao `ref` enviado ao workflow de build.
+- [ ] Verificar que o workflow de dispatch existe na branch padrão do aplicativo antes de solicitar execução em branch de feature.
+- [ ] Confirmar toasts de erro/sucesso, foco do botão de fechar, contraste e responsividade no Android.
+- [ ] Validar que a barra mostra **etapas do Actions**, sem prometer percentual exato ou duração do Gradle.
+- [ ] Verificar artifact único APK/AAB, artifact múltiplo ZIP, expirado e cenário de bloqueio CORS — oferecer link de fallback para o run.
+- [ ] Conferir que o card de assinatura está após downloads e só aceita AAB unsigned selecionado, com secrets isolados.
+
+Veja [guia detalhado de execução](../CONSOLE-UX-ADMOB-PROGRESSO.md).
