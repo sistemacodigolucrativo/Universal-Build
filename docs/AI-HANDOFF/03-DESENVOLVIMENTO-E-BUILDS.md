@@ -16,6 +16,9 @@
 4. Selecionar build, `project_dir=.`, `android_module=app`, `android_flavor=auto`, Java 17 (valores adequados ao Kotlin Master atual).
 5. Acionar build. O painel despacha `workflow_dispatch` para o projeto; o workflow chama o motor reutilizável do Universal Build.
 6. Acompanhar Actions, consultar logs e baixar ZIP de **Artifacts**. Artefatos têm `retention-days: 14` no motor atual; não confundir ZIP de artifact com APK diretamente.
+   - O card de progresso e os botões de download referem-se à **mesma execução selecionada**. Os cards antigos continuam no histórico, mas seus artefatos não são listados como downloads da compilação atual.
+   - Enquanto o GitHub ainda não retornar a nova execução, não reutilizar downloads de builds anteriores. Se já houver execução em andamento, exibir suas etapas em vez de declarar que todas estão indisponíveis.
+   - Para consultar artefatos históricos, abrir os logs no GitHub da execução correspondente.
 7. Extrair o ZIP no Android, instalar **APK debug**, testar e documentar resultados. Build aprovado não prova exibição correta, sensores, navegação nem políticas da loja.
 
 **Atenção:** o console na branch `main` não contém a nova seção AdMob em 21/11/2026; essa UI está na [PR 5](https://github.com/sistemacodigolucrativo/Universal-Build/pull/5).
