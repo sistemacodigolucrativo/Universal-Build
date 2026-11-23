@@ -69,6 +69,8 @@
     state.expires = 0;
     state.repo = null;
     state.repos = [];
+    $("repo-select").replaceChildren(new Option("Selecione um projeto Android", ""));
+    $("repo-select").disabled = true;
     repoScanId++;
     adConfigRequestId++;
     branchRequestId++;
