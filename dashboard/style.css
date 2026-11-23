@@ -30,3 +30,17 @@
 .artifact-line{gap:10px}
 .artifact-line .artifact-actions{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:530px){.toast-stack{right:12px;left:12px;width:auto}.artifact-actions button{flex:1}}
+/* Simplified build history: latest run is primary, history stays collapsed. */
+.history-dropdown{margin-top:16px;border:1px solid #354c6f;border-radius:12px;background:#0c182a;padding:14px}
+.history-dropdown[hidden],.keygen-recovered[hidden]{display:none}
+.history-dropdown summary,.keygen-setup summary{padding:3px 0;min-height:32px}
+.history-dropdown .run-list{margin-top:14px}
+.artifact-line a.artifact-download{display:inline-flex;align-items:center;justify-content:center;padding:8px 11px;border:1px solid #405475;border-radius:9px;color:#f2f6ff;background:#1c304d;text-decoration:none;font-weight:650}
+.artifact-line a.artifact-download:hover{background:#284668}
+.keygen-setup{margin:14px 0 18px;padding:16px;border:1px solid #304762;border-radius:12px;background:#0c182a}
+.keygen-setup p{margin-top:12px}
+.keygen-recovered{margin-top:14px;padding:13px;border:1px solid #356451;border-radius:10px}
+#build-advanced{margin:14px 0;padding:12px;border:1px solid #30425e;border-radius:10px}
+#build-advanced summary{min-height:28px}
+@media(max-width:530px){.keygen-recovered .inline button{width:100%}.artifact-actions a{width:100%}}
+
