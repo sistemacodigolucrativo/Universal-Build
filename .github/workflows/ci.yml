@@ -31,8 +31,10 @@ jobs:
           node --check dashboard/admob-config.js
           node --check dashboard/build-progress.js
           node --check dashboard/artifact-download.js
+          node --check dashboard/keygen-client.js
+          node --check scripts/keygen-encrypt.cjs
       - name: Testar filtro de repositórios Android
-        run: node --test tests/android-repos.test.cjs tests/test-console-build-config.cjs tests/admob-settings.test.cjs tests/console-live.test.cjs
+        run: node --test tests/android-repos.test.cjs tests/test-console-build-config.cjs tests/admob-settings.test.cjs tests/console-live.test.cjs tests/keygen.test.cjs
       - name: Auditar IDs e referências do painel
         run: python3 tests/test-dashboard.py
       - name: Testar identificação de projeto
