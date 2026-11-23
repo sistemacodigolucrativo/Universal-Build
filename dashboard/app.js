@@ -14,6 +14,9 @@
   let refreshRequestId = 0;
   let lastDispatch = null;
   let recoveredUploadKey = null;
+  let signingRequestPending = false;
+  let historyPageLimit = 1;
+  let latestHistoryCards = [];
   const artifactsByRun = new Map();
   const knownRunIds = new Map();
   let currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
@@ -73,6 +76,12 @@
     lastDispatch = null;
     artifactsByRun.clear();
     knownRunIds.clear();
+    historyPageLimit = 1;
+    latestHistoryCards = [];
+    signingRequestPending = false;
+    $("sign-run-id").value = "";
+    $("sign-artifact").value = "";
+    $("sign-btn").disabled = true;
     $("branch-select").replaceChildren(new Option("Selecione primeiro um repositório", ""));
     $("branch-select").disabled = true;
     $("build-progress").hidden = true;
@@ -309,11 +318,18 @@
     $("install-btn").disabled = !active;
     $("run-btn").disabled = !active;
     $("refresh-runs").disabled = !active;
-    $("sign-btn").disabled = !active;
+    $("sign-run-id").value = "";
+    $("sign-artifact").value = "";
+    signingRequestPending = false;
+    updateSignAvailability();
     $("keygen-start").disabled = !active;
     forgetRecoveredKey();
     $("history-details").open = false;
     $("history-list").replaceChildren();
+    $("history-summary").textContent = "Compilações anteriores (0)";
+    $("history-more").hidden = true;
+    historyPageLimit = 1;
+    latestHistoryCards = [];
     $("admob-save").disabled = true;
     $("open-repo").hidden = !active;
     adConfigRequestId++;
@@ -360,6 +376,12 @@
     $("admob-status").textContent = "Carregando configurações da branch " + selectedBranch() + "...";
     $("build-progress").hidden = true;
     lastDispatch = null;
+    historyPageLimit = 1;
+    latestHistoryCards = [];
+    $("history-more").hidden = true;
+    $("sign-run-id").value = "";
+    $("sign-artifact").value = "";
+    updateSignAvailability();
     forgetRecoveredKey();
     $("history-details").open = false;
     $("history-list").replaceChildren();
@@ -613,18 +635,39 @@
     } catch (err) { notice(err.message, true); }
     finally { btn.disabled = !state.repo; }
   }
+  function updateSignAvailability() {
+    const runId = $("sign-run-id").value.trim();
+    const name = $("sign-artifact").value.trim();
+    const valid = !!state.repo &&
+      window.UniversalBuildProgress.canSignFields(runId, name);
+    $("sign-btn").disabled = !valid || signingRequestPending;
+    const help = $("sign-validation");
+    if (!state.repo) help.textContent = "Selecione um projeto Android na opção 1.";
+    else if (!runId && !name) help.textContent =
+      "Selecione um AAB na opção 4 ou informe Run ID e nome do artefato.";
+    else if (!valid) help.textContent =
+      "Informe o Run ID numérico e o nome completo do artefato terminado em -aab-unsigned ou -both-unsigned.";
+    else help.textContent =
+      "Dados preenchidos. Antes de iniciar, verificaremos se o artefato existe e não expirou.";
+  }
+
   async function signBuild(ev) {
     ev.preventDefault();
-    const btn = $("sign-btn");
-    btn.disabled = true;
+    if (signingRequestPending) return;
+    signingRequestPending = true;
+    updateSignAvailability();
     try {
       const repo = selected();
       const runId = $("sign-run-id").value.trim();
       const name = $("sign-artifact").value.trim();
-      if (!/^[0-9]+$/.test(runId) || !/^[A-Za-z0-9._-]+$/.test(name) || !/-aab-unsigned$|-both-unsigned$/.test(name)) {
-        throw new Error("Informe o Run ID e o nome de um artefato AAB unsigned criado pelo Universal Build.");
+      if (!window.UniversalBuildProgress.canSignFields(runId, name)) {
+        throw new Error("Informe um Run ID válido e o nome exato de um AAB sem assinatura.");
       }
-      notice("Verificando workflow de assinatura...");
+      const source = await api(repoPath(repo) + "/actions/runs/" + runId + "/artifacts?per_page=100");
+      const artifact = (source.artifacts || []).find(item => item.name === name);
+      if (!artifact) throw new Error("Artefato não encontrado nesta execução. Confira Run ID, nome e repositório.");
+      if (artifact.expired) throw new Error("O artefato expirou no GitHub. Será necessária outra compilação.");
+      notice("Artefato confirmado. Verificando workflow de assinatura...");
       await ensureSignWorkflow(false);
       await api(repoPath(repo) + "/actions/workflows/universal-sign.yml/dispatches", {
         method: "POST",
@@ -633,7 +676,7 @@
       notice("Assinatura solicitada! Acompanhe pelo link de assinaturas do GitHub. Os quatro Secrets devem estar cadastrados.");
       await refreshRuns();
     } catch (err) { notice(err.message, true); }
-    finally { btn.disabled = !state.repo; }
+    finally { signingRequestPending = false; updateSignAvailability(); }
   }
   async function uploadZip(file) {
     if (!file || !file.name.toLowerCase().endsWith(".zip")) throw new Error("Selecione um arquivo .zip.");
@@ -745,6 +788,88 @@
     return "Artefato da execução";
   }
 
+  // Load artifacts for both the highlighted execution and older builds.
+  async function loadRunArtifacts(card) {
+    const { repo, branch, run, box, request } = card;
+    if (request !== refreshRequestId || !box.isConnected) return;
+    const cacheKey = repo.full_name + "/" + run.id;
+    try {
+      let response = artifactsByRun.get(cacheKey);
+      if (!response) {
+        response = await api(repoPath(repo) + "/actions/runs/" + run.id + "/artifacts?per_page=100");
+        artifactsByRun.set(cacheKey, response);
+        if (artifactsByRun.size > 120) artifactsByRun.delete(artifactsByRun.keys().next().value);
+      }
+      if (request !== refreshRequestId || !box.isConnected || !state.repo ||
+          state.repo.full_name !== repo.full_name || selectedBranch(repo) !== branch) return;
+      const items = response.artifacts || [];
+      box.replaceChildren();
+      if (!items.length) {
+        const empty = document.createElement("p");
+        empty.className = "small";
+        empty.textContent = "Nenhum artefato disponível. Consulte a execução no GitHub.";
+        box.append(empty);
+      }
+      for (const artifact of items) {
+        const line = document.createElement("div");
+        line.className = "artifact-line";
+        const label = document.createElement("span");
+        label.textContent = "📦 " + artifactDescription(artifact) + " · " +
+          artifact.name + (artifact.expired ? " · expirado" : "");
+        line.append(label);
+        if (!artifact.expired) {
+          const actions = document.createElement("div");
+          actions.className = "artifact-actions";
+          const download = document.createElement("a");
+          download.className = "secondary artifact-download";
+          download.href = downloadArtifact(repo, run, artifact);
+          download.target = "_blank";
+          download.rel = "noopener noreferrer";
+          download.textContent = "Baixar ZIP no GitHub";
+          download.title = "Requer sessão iniciada no GitHub";
+          actions.append(download);
+          if (window.UniversalBuildProgress.isUnsignedAabArtifact(artifact.name)) {
+            const sign = document.createElement("button");
+            sign.type = "button";
+            sign.className = "secondary";
+            sign.textContent = "Assinar AAB";
+            sign.addEventListener("click", () => {
+              $("sign-run-id").value = String(run.id);
+              $("sign-artifact").value = artifact.name;
+              updateSignAvailability();
+              $("sign-form").scrollIntoView({ behavior: "smooth", block: "center" });
+              notice("AAB escolhido na execução #" + run.run_number +
+                ". Confira a chave de assinatura e prossiga na opção 5.");
+            });
+            actions.append(sign);
+          }
+          line.append(actions);
+        }
+        box.append(line);
+      }
+    } catch (error) {
+      if (request !== refreshRequestId || !box.isConnected) return;
+      const note = document.createElement("p");
+      note.className = "small";
+      note.textContent = "Não foi possível listar os artefatos: " + error.message +
+        ". Abra os logs desta execução no GitHub.";
+      box.replaceChildren(note);
+    }
+  }
+
+  async function loadHistoricalArtifacts() {
+    const cards = latestHistoryCards;
+    let next = 0;
+    async function worker() {
+      while ($("history-details").open && next < cards.length) {
+        const card = cards[next++];
+        if (card.request !== refreshRequestId) return;
+        await loadRunArtifacts(card);
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(3, cards.length) }, worker));
+  }
+
   function displayPrimaryProgress(selection, details, branch) {
     const box = $("build-progress");
     const current = selection.current;
@@ -785,11 +910,10 @@
       list.append(p);
     }
     try {
-      const workflows = ["universal-build.yml"];
-      const groups = await Promise.all(workflows.map(async workflow => {
+      const groups = await Promise.all(Array.from({ length: historyPageLimit }, async (_, page) => {
         try {
-          const url = repoPath(repo) + "/actions/workflows/" + workflow +
-            "/runs?per_page=12&branch=" + encodeURIComponent(branch);
+          const url = repoPath(repo) + "/actions/workflows/universal-build.yml" +
+            "/runs?per_page=20&page=" + (page + 1) + "&branch=" + encodeURIComponent(branch);
           const response = await api(url);
           return response.workflow_runs || [];
         } catch (error) {
@@ -797,10 +921,11 @@
           throw error;
         }
       }));
+      const hasMore = groups.length > 0 && groups[groups.length - 1].length === 20;
       if (request !== refreshRequestId || !state.repo ||
           state.repo.full_name !== repo.full_name || selectedBranch(repo) !== branch) return;
       const runs = [...new Map(groups.flat().map(run => [run.id, run])).values()]
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 15);
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       const active = runs.filter(run => run.status !== "completed").slice(0, 5);
       const progressRows = await Promise.all(active.map(async run => {
         try {
@@ -820,6 +945,7 @@
       const fragment = document.createDocumentFragment();
       const historyFragment = document.createDocumentFragment();
       let historicalCount = 0;
+      const cards = [];
       if (!selection.current) {
         const p = document.createElement("p");
         p.className = "small";
@@ -858,67 +984,38 @@
           timed_out: "Tempo esgotado", action_required: "Ação necessária"
         })[statusValue] || statusValue;
         row.append(main, badge);
-        // Keep old runs visible for logs, but never offer artifacts from a previous run.
-        if (statusValue === "success" && selection.current?.id === run.id) {
-          try {
-            let response = artifactsByRun.get(repo.full_name + "/" + run.id);
-            if (!response) {
-              response = await api(repoPath(repo) + "/actions/runs/" + run.id + "/artifacts?per_page=100");
-              artifactsByRun.set(repo.full_name + "/" + run.id, response);
-              if (artifactsByRun.size > 120) artifactsByRun.delete(artifactsByRun.keys().next().value);
-            }
-            if (request !== refreshRequestId || !state.repo ||
-                state.repo.full_name !== repo.full_name || selectedBranch(repo) !== branch) return;
-            for (const artifact of response.artifacts || []) {
-              const line = document.createElement("div");
-              line.className = "artifact-line";
-              const label = document.createElement("span");
-              label.textContent = "📦 " + artifactDescription(artifact) + " · " +
-                artifact.name + (artifact.expired ? " · expirado" : "");
-              line.append(label);
-              if (!artifact.expired) {
-                const actions = document.createElement("div");
-                actions.className = "artifact-actions";
-                const download = document.createElement("a");
-                download.className = "secondary artifact-download";
-                download.href = downloadArtifact(repo, run, artifact);
-                download.target = "_blank";
-                download.rel = "noopener noreferrer";
-                download.textContent = "Baixar ZIP no GitHub";
-                download.title = "Requer sessão iniciada no GitHub";
-                actions.append(download);
-                if (artifact.name.endsWith("-aab-unsigned") ||
-                    artifact.name.endsWith("-both-unsigned")) {
-                  const sign = document.createElement("button");
-                  sign.type = "button";
-                  sign.className = "secondary";
-                  sign.textContent = "Selecionar para assinatura";
-                  sign.addEventListener("click", () => {
-                    $("sign-run-id").value = String(run.id);
-                    $("sign-artifact").value = artifact.name;
-                    $("sign-form").scrollIntoView({ behavior: "smooth", block: "center" });
-                    notice("AAB sem assinatura selecionado. Confira os dados e inicie a assinatura.");
-                  });
-                  actions.append(sign);
-                }
-                line.append(actions);
-              }
-              main.append(line);
-            }
-          } catch (error) {
-            const info = document.createElement("p");
-            info.className = "small";
-            info.textContent = "Artefatos indisponíveis nesta execução: " + error.message;
-            main.append(info);
-          }
+        // Preserve the original run identity for all artifact actions.
+        if (statusValue === "success") {
+          const box = document.createElement("div");
+          box.className = "run-artifacts";
+          const pending = document.createElement("p");
+          pending.className = "small";
+          pending.textContent = "Abra o histórico para consultar os arquivos desta execução.";
+          box.append(pending);
+          main.append(box);
+          cards.push({ repo, branch, run, box, request,
+            isCurrent: selection.current?.id === run.id });
         }
         if (selection.current?.id === run.id) fragment.append(row);
         else { historicalCount++; historyFragment.append(row); }
       }
+      if (!historicalCount) {
+        const p = document.createElement("p");
+        p.className = "small";
+        p.textContent = runs.length ?
+          "Nenhuma compilação anterior à destacada acima. Os arquivos da última execução estão no card principal." :
+          "Nenhuma compilação encontrada nesta branch. Confira a branch ou o histórico no GitHub.";
+        historyFragment.append(p);
+      }
       list.replaceChildren(fragment);
       $("history-list").replaceChildren(historyFragment);
       $("history-summary").textContent = "Compilações anteriores (" + historicalCount + ")";
-      $("history-details").hidden = historicalCount === 0;
+      $("history-details").hidden = false;
+      $("history-more").hidden = !hasMore;
+      latestHistoryCards = cards.filter(card => !card.isCurrent);
+      const currentCard = cards.find(card => card.isCurrent);
+      if (currentCard) void loadRunArtifacts(currentCard);
+      if ($("history-details").open) void loadHistoricalArtifacts();
     } catch (error) {
       if (request !== refreshRequestId || !state.repo ||
           state.repo.full_name !== repo.full_name) return;
@@ -926,8 +1023,10 @@
       p.className = "small";
       p.textContent = "Não foi possível atualizar o histórico: " + error.message;
       list.replaceChildren(p);
-      $("history-list").replaceChildren();
-      $("history-details").hidden = true;
+      $("history-list").replaceChildren(p.cloneNode(true));
+      $("history-details").hidden = false;
+      $("history-more").hidden = true;
+      latestHistoryCards = [];
       // Periodic polling must not flood the toast stack when the API rate-limits.
     }
   }
@@ -942,6 +1041,16 @@
   $("build-form").addEventListener("submit", runBuild);
   $("admob-form").addEventListener("submit", saveAdmobConfig);
   $("sign-form").addEventListener("submit", signBuild);
+  $("sign-run-id").addEventListener("input", updateSignAvailability);
+  $("sign-artifact").addEventListener("input", updateSignAvailability);
+  $("history-details").addEventListener("toggle", () => {
+    if ($("history-details").open) void loadHistoricalArtifacts();
+  });
+  $("history-more").addEventListener("click", () => {
+    historyPageLimit += 1;
+    $("history-more").disabled = true;
+    void refreshRuns().finally(() => { $("history-more").disabled = !state.repo; });
+  });
   $("keygen-start").addEventListener("click", generateUploadKey);
   $("keygen-unlock").addEventListener("click", unlockUploadKey);
   $("keygen-save-jks").addEventListener("click", saveRecoveredKey);

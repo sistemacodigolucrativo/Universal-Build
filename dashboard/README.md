@@ -37,7 +37,7 @@ A branch selecionada determina tanto onde `config/universal-build-admob.json` é
 
 Todas as notificações temporárias do painel usam **toasts**. O andamento é consultado automaticamente pelo GitHub Actions a cada 12 segundos quando o painel está visível. A barra indica **etapas do workflow**, e não progresso exato do compilador Gradle.
 
-Os artifacts de um run bem-sucedido ficam listados no próprio painel, com botões para baixar. O GitHub fornece ZIP; quando houver um só APK/AAB e o navegador suportar descompactação, o console entrega diretamente esse binário. Se houver vários arquivos ou limitações do browser, o ZIP é baixado. Em caso de restrição CORS, abra **Ver logs no GitHub** e baixe no Actions. Artefatos expiram conforme retention policy do workflow.
+Os artefatos da **última execução e das compilações anteriores** são consultados por execução, sem misturá-los. Abra **Compilações anteriores** mesmo sem iniciar novo build: os cards exibem status, logs e ações de **Baixar ZIP no GitHub** ou **Assinar AAB** (somente AAB unsigned). A lista carrega 20 execuções por página, com botão **Carregar mais compilações** e alternativa **Ver histórico completo no GitHub**. Os arquivos antigos são consultados sob demanda ao abrir o histórico para evitar sobrecarga da API. Arquivos expirados não oferecem download/assinatura. O download usa a página autenticada do GitHub, evitando erros de CORS.
 
 Leia [o guia completo de implementação e limites](../docs/CONSOLE-UX-ADMOB-PROGRESSO.md).
 
@@ -46,8 +46,9 @@ Leia [o guia completo de implementação e limites](../docs/CONSOLE-UX-ADMOB-PRO
 1. No painel, selecione `AAB sem assinatura` (`aab-unsigned`) e inicie o build.
 2. Aguarde a execução concluir; o artefato será listado.
 3. Cadastre no repositório do **aplicativo** os 4 secrets de assinatura documentados em `docs/ASSINATURA-E-PLAY-STORE.md`.
-4. Clique em **Assinar este AAB** no artefato ou digite o Run ID e nome do artefato.
-5. Inicie **Assinar AAB na nuvem**. Um novo workflow gera o AAB assinado para upload à Play Store.
+4. No card mais recente ou no dropdown **Compilações anteriores**, clique **Assinar AAB**; o painel levará à opção 5 com Run ID e nome preenchidos. Alternativamente, digite os dois valores manualmente. O botão habilita com formatos válidos e um repositório selecionado.
+5. Clique em **Assinar AAB na nuvem**. Antes do dispatch, o painel confirma no GitHub a existência do artefato não expirado. A configuração correta dos quatro secrets continua obrigatória; a habilitação do botão não garante assinatura bem-sucedida.
+6. O arquivo **.ubenc** é o backup criptografado da chave de upload, utilizado no fluxo separado de geração/recuperação. Não é um APK/AAB e não é necessário para escolher um build para assinatura.
 
 O modo de assinatura posterior não recompila o código-fonte. APK de debug não precisa dessa etapa.
 
