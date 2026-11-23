@@ -12,6 +12,7 @@
   <script defer src="./admob-config.js"></script>
   <script defer src="./build-progress.js"></script>
   <script defer src="./artifact-download.js"></script>
+  <script defer src="./keygen-client.js"></script>
   <script defer src="./app.js"></script>
 </head>
 <body>
@@ -62,8 +63,8 @@
             </form>
           </details>
           <hr>
-          <button id="install-btn" class="secondary wide" disabled>Instalar ou atualizar workflows do projeto</button>
-          <p class="small">Esta ação instala os workflows <code>universal-build.yml</code> e <code>universal-sign.yml</code> no repositório selecionado. Não altera o código do aplicativo.</p>
+          <button id="install-btn" class="secondary wide" disabled>Instalar/atualizar workflows de build, assinatura e chave</button>
+          <p class="small">Esta ação instala os três workflows na branch padrão do projeto. Não altera o código Android.</p>
         </section>
       <section class="panel" id="admob-settings">
         <h2>2 · Monetização · Google AdMob</h2>
@@ -116,6 +117,8 @@
               <option value="aab">AAB release assinado (exige secrets)</option>
               <option value="release-apk">APK de distribuição (release)</option>
             </select>
+            <details id="build-advanced">
+              <summary>Configurações avançadas (pasta, módulo, Java, ZIP)</summary>
             <label for="project-dir">Pasta do projeto</label>
             <input id="project-dir" value="." placeholder=". ou mobile/android">
             <label for="android-module">Módulo Android</label>
@@ -138,21 +141,45 @@
             <label for="project-zip">Importar projeto ZIP (opcional, até 15 MiB)</label>
             <input id="project-zip" type="file" accept=".zip,application/zip">
             <p class="small">O ZIP será salvo no repositório selecionado e extraído pelo GitHub Actions. Em repositórios públicos, o conteúdo poderá ficar público. Para projetos maiores, use um repositório já preenchido.</p>
+            </details>
             <button id="run-btn" type="submit" class="primary wide" disabled>Iniciar build</button>
           </form>
         </section>
       <section class="panel history">
-        <div class="inline space"><div><h2>4 · Progresso, compilações e downloads</h2><p>Acompanhe etapas de execução e baixe APK, AAB ou ZIP diretamente quando o navegador permitir.</p></div><button id="refresh-runs" class="secondary" disabled>Atualizar</button></div>
+        <div class="inline space"><div><h2>4 · Progresso, compilações e downloads</h2><p>Acompanhe a compilação atual. Downloads usam a página oficial do GitHub para evitar bloqueios de CORS.</p></div><button id="refresh-runs" class="secondary" disabled>Atualizar</button></div>
         <div id="build-progress" class="build-progress" role="status" aria-live="polite" hidden>
           <strong id="build-progress-title">Aguardando build</strong>
           <progress id="build-progress-bar" max="100"></progress>
           <p id="build-progress-label" class="small">Etapas observadas pelo GitHub Actions — não é porcentagem real do compilador.</p>
         </div>
-        <div id="run-list" class="run-list"><p class="small">Selecione um repositório para visualizar o histórico.</p></div>
+        <div id="run-list" class="run-list"><p class="small">Selecione um repositório para visualizar a compilação.</p></div>
+        <details id="history-details" class="history-dropdown">
+          <summary id="history-summary">Compilações anteriores (0)</summary>
+          <div id="history-list" class="run-list"><p class="small">Nenhuma compilação anterior.</p></div>
+        </details>
       </section>
       <section class="panel history">
         <h2>5 · Assinatura · somente após compilar</h2>
-        <p>Escolha um AAB sem assinatura na lista de downloads acima. A assinatura acontece em uma execução independente, usando os segredos protegidos do repositório do aplicativo.</p>
+        <p>Selecione o AAB sem assinatura da etapa 4. A assinatura acontece no GitHub Actions.</p>
+        <details id="keygen-details" class="keygen-setup">
+          <summary>Criar e guardar minha chave de assinatura (primeira publicação)</summary>
+          <p class="small">Primeiro, crie no repositório um secret <code>ANDROID_KEYSTORE_PASSWORD</code> com uma senha forte de 20 ou mais caracteres. Guarde essa senha em seu gerenciador de senhas.</p>
+          <a id="keygen-secrets-link" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">Abrir Secrets do aplicativo no GitHub ↗</a>
+          <button id="keygen-start" class="secondary wide" type="button" disabled>Gerar chave criptografada no GitHub</button>
+          <p class="small">Depois da execução, <a id="keygen-runs-link" href="https://github.com" target="_blank" rel="noopener noreferrer">baixe o ZIP de geração no GitHub Actions</a> e extraia o arquivo <code>upload-key.jks.ubenc</code>. O ZIP NÃO contém chave privada em texto claro. Nunca gere outra chave para substituir uma já usada no mesmo aplicativo.</p>
+          <label for="keygen-encrypted">Arquivo criptografado (.ubenc)</label>
+          <input id="keygen-encrypted" type="file" accept=".ubenc,application/octet-stream">
+          <label for="keygen-password">Senha de proteção configurada no GitHub</label>
+          <input id="keygen-password" type="password" autocomplete="off" placeholder="A mesma senha do secret ANDROID_KEYSTORE_PASSWORD">
+          <button id="keygen-unlock" class="secondary wide" type="button">Desbloquear localmente no navegador</button>
+          <p id="keygen-result" class="small" role="status" aria-live="polite">A senha e o arquivo não são enviados para nenhum servidor durante o desbloqueio.</p>
+          <div id="keygen-recovered" class="keygen-recovered" hidden>
+            <p>Chave recuperada. Alias: <code>upload</code>; senha da chave: igual à senha do keystore.</p>
+            <div class="inline"><button id="keygen-save-jks" type="button" class="secondary">Baixar minha chave .jks</button><button id="keygen-copy-base64" type="button" class="secondary">Copiar Base64 para Secret</button></div>
+            <p class="small">Guarde o JKS e as senhas fora do GitHub. Em Secrets, salve o Base64 em <code>ANDROID_KEYSTORE_BASE64</code>, o alias <code>upload</code> em <code>ANDROID_KEY_ALIAS</code> e a mesma senha em <code>ANDROID_KEY_PASSWORD</code>.</p>
+          </div>
+        </details>
+        <p class="small">Se você já possui uma chave de upload do aplicativo, reutilize-a. Não gere outra.</p>
         <form id="sign-form">
           <div class="two">
             <div><label for="sign-run-id">Número da execução de origem (Run ID)</label><input id="sign-run-id" required inputmode="numeric" pattern="[0-9]+" placeholder="Ex.: 44784533268"></div>
@@ -162,7 +189,7 @@
             <button id="sign-btn" type="submit" class="primary" disabled>Assinar AAB na nuvem</button>
             <a id="secrets-link" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">Configurar secrets no repositório ↗</a>
           </div>
-          <p class="small">Antes do primeiro AAB real, cadastre ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS e ANDROID_KEY_PASSWORD em Settings → Secrets and variables → Actions do aplicativo. Nunca os informe neste painel.</p>
+          <p class="small">Para assinar, configure os quatro secrets ANDROID_KEYSTORE_* no GitHub. <a id="sign-runs-link" href="https://github.com" target="_blank" rel="noopener noreferrer">Acompanhar assinaturas no GitHub ↗</a>. Não informe senhas neste formulário.</p>
         </form>
       </section>
       <footer>Universal Build · Serviço estático, sem banco de dados e sem servidor próprio. Compilações executadas no GitHub Actions.</footer>
