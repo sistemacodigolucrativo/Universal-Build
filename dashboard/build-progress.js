@@ -36,10 +36,9 @@
         dispatch.knownRunIds.length > 0 && !dispatch.knownRunIds.includes(run.id);
       return unseen || new Date(run.created_at).getTime() >= dispatch.at - 10000;
     }) : history;
-    const active = run => run.status !== "completed";
-    const current = pending ?
-      (candidates.find(active) || candidates[0] || history.find(active) || null) :
-      (history.find(active) || history[0] || null);
+    // This is the newest build, not an older build that happens to be active.
+    // While a new dispatch is pending, never mislabel an old artifact as current.
+    const current = pending ? (candidates[0] || null) : (history[0] || null);
     return { current, pending };
   }
   return { summarize, selectCurrentRun };
