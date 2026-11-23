@@ -550,8 +550,9 @@
     const password = $("keygen-password").value;
     if (!file || !file.name.endsWith(".ubenc")) return notice("Selecione um arquivo .ubenc.", true);
     btn.disabled = true;
-    forgetRecoveredKey();
-    // Forgetting inputs above is intentional for repo switches, not for unlocking.
+    if (recoveredUploadKey) new Uint8Array(recoveredUploadKey).fill(0);
+    recoveredUploadKey = null;
+    $("keygen-recovered").hidden = true;
     try {
       const encrypted = await file.arrayBuffer();
       recoveredUploadKey = await window.UniversalKeygen.decrypt(encrypted, password);
@@ -560,7 +561,10 @@
     } catch (err) {
       $("keygen-result").textContent = err.message;
       notice(err.message, true);
-    } finally { btn.disabled = false; }
+    } finally {
+      $("keygen-password").value = "";
+      btn.disabled = false;
+    }
   }
   function saveRecoveredKey() {
     if (!recoveredUploadKey) return;
@@ -811,7 +815,6 @@
         fragment.append(p);
       }
       for (const run of runs) {
-        const isSign = false;
         const statusValue = run.conclusion || run.status;
         const row = document.createElement("div");
         row.className = "run";
@@ -819,7 +822,7 @@
         main.className = "run-details";
         const title = document.createElement("div");
         title.className = "run-title";
-        title.textContent = (isSign ? "Assinatura" : "Build") + " #" + run.run_number +
+        title.textContent = "Build #" + run.run_number +
           " · " + run.head_branch;
         const meta = document.createElement("div");
         meta.className = "run-meta";
@@ -871,8 +874,8 @@
                 download.textContent = "Baixar ZIP no GitHub";
                 download.title = "Requer sessão iniciada no GitHub";
                 actions.append(download);
-                if (!isSign && (artifact.name.endsWith("-aab-unsigned") ||
-                    artifact.name.endsWith("-both-unsigned"))) {
+                if (artifact.name.endsWith("-aab-unsigned") ||
+                    artifact.name.endsWith("-both-unsigned")) {
                   const sign = document.createElement("button");
                   sign.type = "button";
                   sign.className = "secondary";
