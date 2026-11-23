@@ -63,6 +63,12 @@ A etapa 5 inclui gerador de chave com GitHub Actions e recuperação de backup c
 
 [Auditoria completa do fluxo e roadmap](docs/AUDITORIA-FLUXO-2026-11-23.md).
 
+## Assistente de etapas progressivas (proposta em PR)
+
+O fluxo mobile-first foi organizado em cinco telas: **Aplicativo → Anúncios (opcional) → Compilar → Resultados → Assinar**. A navegação preserva os formulários já abertos, protege alterações AdMob não salvas e permite assinar AAB de uma execução anterior. O status dos Secrets aparece fora do menu de geração e não expõe valores. **Enquanto esta mudança estiver em branch/PR, não atribuí-la ao painel publicado.**
+
+[Auditoria técnica e documentação de aceite do wizard](docs/AUDITORIA-WIZARD-2026-11-23.md).
+
 ## Assinatura DEPOIS da compilação
 
 - `aab-unsigned`: gera AAB sem assinatura, apropriado para uma etapa posterior de assinatura.

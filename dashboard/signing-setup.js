@@ -94,7 +94,7 @@
       if (request !== inspectionId || !sameRepo(active)) return;
       const count = secretNames.filter(name => names.has(name)).length;
       configured = count === 4;
-      if (configured) status("✅ Os quatro Secrets de assinatura já existem. Não gere outra chave; você pode assinar o AAB.");
+      if (configured) status("✅ Quatro Secrets de assinatura cadastrados. Não gere outra chave. O GitHub não revela os valores; a assinatura real do AAB é a verificação necessária.");
       else if (count) status("⚠️ " + count + "/4 Secrets existentes. Não substitua uma chave de aplicativo já publicado; recupere o JKS original ou conclua uma configuração anterior.");
       else status("Nenhum Secret de assinatura encontrado. Se é o primeiro lançamento, você pode gerar uma nova chave automaticamente.");
       $("keygen-auto-start").disabled = configured || count > 0 || inFlight;
