@@ -109,3 +109,16 @@ Os registros anteriores neste arquivo são **snapshot histórico** anterior a es
 - **Limitações:** o bloqueio de download direto por redirecionamento/CORS do GitHub é uma questão independente; esta correção não altera o transporte dos arquivos.
 - **Rollback:** reverter commits desta PR (se incorporada); não alterar workflows nem credenciais para desfazer a correção.
 
+## Revisão do fluxo, downloads e gerador de chaves — 23/11/2026
+
+- **IDs:** UB-UX-001 (build atual e histórico), UB-UX-002 (download GitHub sem fetch), UB-KEY-001 (primeiro gerador de chave), UB-UX-003 (campos avançados).
+- **Base:** `main` inicial `cf786f60ebe38c2d01e31827aa9cbe1990977fe6`, incorporando mudanças propostas na [PR #9](https://github.com/sistemacodigolucrativo/Universal-Build/pull/9).
+- **Implementação:** `feat/current-build-downloads-keygen-ux-20261123` em [PR #10](https://github.com/sistemacodigolucrativo/Universal-Build/pull/10), que agrega a PR anterior. Evitar merge duplicado.
+- **Código:** `dashboard/app.js`, `dashboard/index.html`, `dashboard/style.css`, `dashboard/keygen-client.js`, `dashboard/build-progress.js`, `scripts/keygen-encrypt.cjs`, `templates/android-keygen.yml`, `.github/workflows/keygen-reusable.yml`; testes Node/Shell, CI e docs.
+- **Segurança:** só backup cifrado (.ubenc) da chave é disponibilizado como Artifact; certificado público PEM. Secrets privados no repositório do app e recuperação WebCrypto local. Não gerar nova chave para um app já publicado.
+- **Evidências CI:** [run 45189605419](https://github.com/sistemacodigolucrativo/Universal-Build/actions/runs/45189605419) e [run 45190469876](https://github.com/sistemacodigolucrativo/Universal-Build/actions/runs/45190469876), ambos com job check aprovado; revalidar o HEAD da PR após alterações adicionais.
+- **Análise técnica:** [AUDITORIA-FLUXO-2026-11-23.md](../AUDITORIA-FLUXO-2026-11-23.md) lista arquitetura, 11 pontos de atenção priorizados, operação simplificada e critérios de aceite.
+- **Status:** código em branch, CI aprovado nos commits de implementação testados; **não mesclado, não implantado no Pages e não validado no telefone**.
+- **Próximos gates:** verificar CI do HEAD final; revisão de segurança e merge autorizado; conferir deploy Pages; testar Android Chrome login/download ZIP, geração Keytool real com secret da conta, recuperação local JKS/Base64 e assinatura AAB no projeto; depois verificar Play Console.
+- **Rollback:** reverter os commits da PR; preservar qualquer JKS de upload já gerado e suas senhas de backup.
+
