@@ -474,6 +474,7 @@
         $("admob-status").textContent = "Salvo em " + name + " · modo " + config.mode +
           ". É preciso integrar esta configuração no aplicativo e recompilar.";
         notice("Configuração AdMob salva com sucesso no GitHub.");
+        window.dispatchEvent(new CustomEvent("ub:admob-saved"));
       }
     } catch (error) {
       if (state.repo && state.repo.full_name === name) {
@@ -751,6 +752,7 @@
       $("build-progress-bar").removeAttribute("value");
       $("build-progress-label").textContent = "A execução será identificada na próxima atualização automática.";
       notice("Build solicitado na branch " + branch + ". Acompanhe o progresso no painel.");
+      window.dispatchEvent(new CustomEvent("ub:build-started"));
       $("project-zip").value = "";
       await refreshRuns();
     } catch (err) { notice(err.message, true); }
@@ -841,6 +843,7 @@
               $("sign-run-id").value = String(run.id);
               $("sign-artifact").value = artifact.name;
               updateSignAvailability();
+              window.dispatchEvent(new CustomEvent("ub:sign-selected"));
               $("sign-form").scrollIntoView({ behavior: "smooth", block: "center" });
               notice("AAB escolhido na execução #" + run.run_number +
                 ". Confira a chave de assinatura e prossiga na opção 5.");
