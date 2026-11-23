@@ -8,6 +8,7 @@
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
+  const root = globalThis;
   const STEPS = Object.freeze([
     { id: "repository-panel", label: "Aplicativo" },
     { id: "admob-settings", label: "Anúncios" },
