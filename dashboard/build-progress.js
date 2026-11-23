@@ -41,5 +41,13 @@
     const current = pending ? (candidates[0] || null) : (history[0] || null);
     return { current, pending };
   }
-  return { summarize, selectCurrentRun };
+  function isUnsignedAabArtifact(name) {
+    return typeof name === "string" &&
+      /^[A-Za-z0-9._-]+-(?:aab|both)-unsigned$/.test(name);
+  }
+  function canSignFields(runId, name) {
+    return /^[1-9][0-9]*$/.test(String(runId || "").trim()) &&
+      isUnsignedAabArtifact(String(name || "").trim());
+  }
+  return { summarize, selectCurrentRun, isUnsignedAabArtifact, canSignFields };
 });

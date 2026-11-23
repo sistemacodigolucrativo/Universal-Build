@@ -156,18 +156,20 @@
         <div id="run-list" class="run-list"><p class="small">Selecione um repositório para visualizar a compilação.</p></div>
         <details id="history-details" class="history-dropdown">
           <summary id="history-summary">Compilações anteriores (0)</summary>
-          <div id="history-list" class="run-list"><p class="small">Nenhuma compilação anterior.</p></div>
-          <p class="small">Mostramos os builds recentes. <a id="all-builds-link" href="https://github.com" target="_blank" rel="noopener noreferrer">Ver histórico completo no GitHub ↗</a></p>
+          <div id="history-list" class="run-list"><p class="small">Selecione um projeto para carregar o histórico.</p></div>
+          <button id="history-more" class="secondary wide" type="button" hidden>Carregar mais compilações</button>
+          <p class="small">Lista por branch, com arquivos disponíveis para baixar ou assinar. <a id="all-builds-link" href="https://github.com" target="_blank" rel="noopener noreferrer">Ver histórico completo no GitHub ↗</a></p>
         </details>
       </section>
       <section class="panel history">
         <h2>5 · Assinatura · somente após compilar</h2>
-        <p>Selecione o AAB sem assinatura da etapa 4. A assinatura acontece no GitHub Actions.</p>
+        <p>Escolha um AAB sem assinatura no histórico da opção 4 ou informe abaixo o número da execução e o nome exato do artefato. A assinatura acontece no GitHub Actions.</p>
         <details id="keygen-details" class="keygen-setup">
           <summary>Criar e guardar minha chave de assinatura (primeira publicação)</summary>
           <p class="small">Primeiro, crie no repositório um secret <code>ANDROID_KEYSTORE_PASSWORD</code> com uma senha forte de 20 ou mais caracteres. Guarde essa senha em seu gerenciador de senhas.</p>
           <a id="keygen-secrets-link" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">Abrir Secrets do aplicativo no GitHub ↗</a>
           <button id="keygen-start" class="secondary wide" type="button" disabled>Gerar chave criptografada no GitHub</button>
+          <p class="small"><strong>O que é .ubenc?</strong> É uma cópia criptografada da sua chave .jks, não é APK nem AAB. Este campo só é usado para recuperar uma chave gerada anteriormente; não precisa preenchê-lo para selecionar um build.</p>
           <p class="small">Depois da execução, <a id="keygen-runs-link" href="https://github.com" target="_blank" rel="noopener noreferrer">baixe o ZIP de geração no GitHub Actions</a> e extraia o arquivo <code>upload-key.jks.ubenc</code>. O ZIP NÃO contém chave privada em texto claro. Nunca gere outra chave para substituir uma já usada no mesmo aplicativo.</p>
           <label for="keygen-encrypted">Arquivo criptografado (.ubenc)</label>
           <input id="keygen-encrypted" type="file" accept=".ubenc,application/octet-stream">
@@ -191,6 +193,7 @@
             <button id="sign-btn" type="submit" class="primary" disabled>Assinar AAB na nuvem</button>
             <a id="secrets-link" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">Configurar secrets no repositório ↗</a>
           </div>
+          <p id="sign-validation" class="small" role="status" aria-live="polite">Selecione um projeto e preencha os dois campos para habilitar a assinatura.</p>
           <p class="small">Para assinar, configure os quatro secrets ANDROID_KEYSTORE_* no GitHub. <a id="sign-runs-link" href="https://github.com" target="_blank" rel="noopener noreferrer">Acompanhar assinaturas no GitHub ↗</a>. Não informe senhas neste formulário.</p>
         </form>
       </section>

@@ -122,3 +122,11 @@ Os registros anteriores neste arquivo são **snapshot histórico** anterior a es
 - **Próximos gates:** verificar CI do HEAD final; revisão de segurança e merge autorizado; conferir deploy Pages; testar Android Chrome login/download ZIP, geração Keytool real com secret da conta, recuperação local JKS/Base64 e assinatura AAB no projeto; depois verificar Play Console.
 - **Rollback:** reverter os commits da PR; preservar qualquer JKS de upload já gerado e suas senhas de backup.
 
+
+
+## Correção proposta em PR — histórico e assinatura fácil (23/11/2026)
+
+- **ID:** UB-UX-003. Exibir builds anteriores sem exigir nova compilação; cada artefato ainda válido oferece download oficial ou seleção para assinatura; selecionar transporta Run ID/nome para a opção 5; habilitar assinatura com ambos os campos válidos.
+- **Branch:** `fix/build-history-sign-flow-20261123`. Inclui paginação de 20 runs, consultas sob demanda de artefatos por execução e validação de existência/expiração no GitHub antes do dispatch. `.ubenc` é o backup criptografado da chave, não o AAB.
+- **Gates pendentes:** CI, PR, merge autorizado, deploy Pages e teste autenticado Android. Assinatura real requer os secrets no repositório do aplicativo; código em branch não equivale a funcionalidade publicada.
+- **Rollback:** reverter o commit da PR (somente dashboard, documentação e testes).
