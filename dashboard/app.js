@@ -535,9 +535,21 @@
     try {
       const created = await ensureKeygenWorkflow(false);
       if (created) notice("Workflow de chaves instalado. A ativação no GitHub pode levar alguns segundos.");
-      await api(repoPath(repo) + "/actions/workflows/universal-keygen.yml/dispatches", {
-        method: "POST", body: JSON.stringify({ ref: repo.default_branch })
-      });
+      let failure;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          await api(repoPath(repo) + "/actions/workflows/universal-keygen.yml/dispatches", {
+            method: "POST", body: JSON.stringify({ ref: repo.default_branch })
+          });
+          failure = null;
+          break;
+        } catch (err) {
+          failure = err;
+          if (err.status !== 404 || attempt === 3) break;
+          await new Promise(resolve => window.setTimeout(resolve, 2000));
+        }
+      }
+      if (failure) throw failure;
       notice("Geração solicitada. Abra o link do GitHub Actions e baixe o ZIP criptografado quando concluir.");
       $("keygen-runs-link").focus();
     } catch (err) {
