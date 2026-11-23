@@ -33,7 +33,7 @@
       now - dispatch.at < 120000);
     const candidates = pending ? history.filter(run => {
       const unseen = Array.isArray(dispatch.knownRunIds) &&
-        !dispatch.knownRunIds.includes(run.id);
+        dispatch.knownRunIds.length > 0 && !dispatch.knownRunIds.includes(run.id);
       return unseen || new Date(run.created_at).getTime() >= dispatch.at - 10000;
     }) : history;
     const active = run => run.status !== "completed";
