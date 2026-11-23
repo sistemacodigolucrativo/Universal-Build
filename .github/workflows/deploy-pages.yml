@@ -10,38 +10,53 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: "github-pages"
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  package:
+    name: Validar e preparar painel estático
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Validar painel
+      - name: Validar painel e criptografia de Secrets
         run: |
           set -euo pipefail
           test -s dashboard/index.html
           test -s dashboard/app.js
           test -s dashboard/style.css
+          test -s dashboard/secret-crypto.js
+          test -s dashboard/signing-setup.js
           node --check dashboard/app.js
-          test -s dashboard/android-repos.js
           node --check dashboard/android-repos.js
-          node --test tests/android-repos.test.cjs
+          node --check dashboard/secret-crypto.js
+          node --check dashboard/signing-setup.js
+          node --test tests/android-repos.test.cjs tests/auto-secrets.test.cjs
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
       - name: Publicar artefato estático
         uses: actions/upload-pages-artifact@v3
         with:
           path: dashboard
-      - name: Implantar no Pages
+
+  deploy:
+    name: Implantar painel no Pages
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      actions: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Implantar no Pages após artefato ficar disponível
         id: deployment
         uses: actions/deploy-pages@v4
