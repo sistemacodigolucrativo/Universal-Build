@@ -101,6 +101,11 @@
     const admob = document.getElementById("admob-form");
     admob.addEventListener("input", () => { adDirty = true; });
     admob.addEventListener("change", () => { adDirty = true; });
+    root.addEventListener("ub:repo-updated", () => {
+      adDirty = false;
+      if (!selected()) current = 1;
+      render();
+    });
     root.addEventListener("ub:admob-saved", () => { adDirty = false; render(); });
     root.addEventListener("ub:build-started", () => { show(4); });
     root.addEventListener("ub:sign-selected", () => { show(5); });
