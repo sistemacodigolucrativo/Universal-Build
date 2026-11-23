@@ -339,6 +339,7 @@
       $("keygen-secrets-link").href = $("secrets-link").href;
       $("keygen-runs-link").href = "https://github.com/" + state.repo.full_name + "/actions/workflows/universal-keygen.yml";
       $("sign-runs-link").href = "https://github.com/" + state.repo.full_name + "/actions/workflows/universal-sign.yml";
+      $("all-builds-link").href = "https://github.com/" + state.repo.full_name + "/actions/workflows/universal-build.yml";
       loadBranches(state.repo);
     } else {
       $("run-list").replaceChildren();
