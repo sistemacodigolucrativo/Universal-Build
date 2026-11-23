@@ -86,6 +86,8 @@ test("navegação bloqueia avançar sem repo, preserva AdMob não salvo e abre a
     assert.equal(buttons[4].disabled, true);
 
     ids.get("repo-select").value = "owner/android-app";
+    emit("ub:repo-updated"); // seleção após varredura assíncrona, sem change do navegador
+    assert.equal(ids.get("wizard-next").disabled, false);
     ids.get("repo-select").dispatch("change");
     assert.equal(ids.get("wizard-next").disabled, false);
     assert.equal(buttons[4].disabled, false);
