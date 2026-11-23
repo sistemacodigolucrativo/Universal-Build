@@ -60,5 +60,5 @@ test("dashboard ships local crypto, checks existing secrets and encrypts before 
   assert.match(wizard, /ANDROID_KEYSTORE_BASE64", base64\)/);
   assert.match(app, /UniversalSigningSetup\.init/);
   assert.match(app, /UniversalSigningSetup\?\.onUnlock\(password\)/);
-  assert.doesNotMatch(wizard, /localStorage|sessionStorage|console\.log\(/);
+  assert.doesNotMatch(wizard.replace(/\/\*[\s\S]*?\*\//g, ""), /localStorage|sessionStorage|console\.log\(/);
 });

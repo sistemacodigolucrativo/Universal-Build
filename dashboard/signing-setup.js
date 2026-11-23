@@ -45,10 +45,16 @@
     $("existing-key-password").value = "";
   }
   async function listSecrets(repo) {
-    const data = await config.api(config.repoPath(repo) + "/actions/secrets?per_page=100");
-    if (!data || !Array.isArray(data.secrets))
-      throw new Error("Não foi possível consultar os Secrets do aplicativo.");
-    return new Set(data.secrets.map(item => item.name));
+    const names = new Set();
+    for (let page = 1; page <= 10; page++) {
+      const data = await config.api(config.repoPath(repo) + "/actions/secrets?per_page=100&page=" + page);
+      if (!data || !Array.isArray(data.secrets))
+        throw new Error("Não foi possível consultar os Secrets do aplicativo.");
+      data.secrets.forEach(item => names.add(item.name));
+      if (data.secrets.length < 100 ||
+          (Number.isFinite(data.total_count) && page * 100 >= data.total_count)) return names;
+    }
+    throw new Error("Limite de consulta de Secrets atingido. Por segurança não é possível alterar a assinatura.");
   }
   async function repoPublicKey(repo) {
     const data = await config.api(config.repoPath(repo) + "/actions/secrets/public-key");
@@ -57,6 +63,7 @@
     return data;
   }
   async function putSecret(repo, publicKey, name, value) {
+    assertRepo(repo);
     const payload = root.UniversalGithubSecrets.makePayload(value, publicKey);
     await config.api(config.repoPath(repo) + "/actions/secrets/" + name, {
       method: "PUT",
@@ -234,8 +241,8 @@
       assertRepo(repo);
       if (names.has("ANDROID_KEYSTORE_BASE64"))
         throw new Error("Já existe uma chave de assinatura cadastrada. Não substituímos chaves automaticamente. Se já está configurado, assine diretamente.");
-      if (names.has("ANDROID_KEY_ALIAS") || names.has("ANDROID_KEY_PASSWORD"))
-        throw new Error("Há Secrets de assinatura parciais. Revise-os no GitHub antes de substituir uma chave existente.");
+      if ((names.has("ANDROID_KEY_ALIAS") || names.has("ANDROID_KEY_PASSWORD")) &&
+          !confirm("A configuração anterior foi interrompida e há Secrets parciais, mas sem JKS salvo. Confirmar a conclusão com ESTA chave e senha?")) return;
       if (mode === "existing" && !confirm("Configurar a chave existente para " + repo.full_name +
           "? Confirme que este é o JKS original usado pelo aplicativo na Google Play.")) return;
       const publicKey = await repoPublicKey(repo);
