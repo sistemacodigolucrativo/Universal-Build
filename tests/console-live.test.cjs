@@ -128,8 +128,15 @@ test("console UI is wired to real Actions jobs and artifact download", () => {
   }
   assert.match(html, /src="\.\/artifact-download\.js"/);
   assert.match(html, /src="\.\/build-progress\.js"/);
+  assert.match(html, /src="\.\/keygen-client\.js"/);
+  for (const id of ["history-details", "history-list", "keygen-start", "keygen-unlock", "keygen-save-jks", "keygen-copy-base64"]) assert.match(html, new RegExp('id="' + id + '"'));
   assert.match(js, /function downloadArtifact\(/);
-  assert.match(js, /\/actions\/artifacts\//);
+  assert.match(js, /"universal-build.yml"\];/);
+  assert.match(js, /historyFragment\.append\(row\)/);
+  assert.match(js, /"history-summary"\)\.textContent/);
+  assert.match(js, /\/actions\/runs\//);
+  assert.match(js, /\/artifacts\//);
+  assert.doesNotMatch(js, /redirect: "follow"/);
   assert.match(js, /\/actions\/runs\/" \+ run\.id \+ "\/jobs/);
   assert.match(js, /ref: branch, inputs/);
   assert.match(js, /function selectedBranch/);
