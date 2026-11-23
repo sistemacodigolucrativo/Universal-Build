@@ -12,6 +12,10 @@
   <script defer src="./admob-config.js"></script>
   <script defer src="./build-progress.js"></script>
   <script defer src="./keygen-client.js"></script>
+  <script defer src="./vendor/nacl-fast.js"></script>
+  <script defer src="./vendor/blake2b-browser.js"></script>
+  <script defer src="./secret-crypto.js"></script>
+  <script defer src="./signing-setup.js"></script>
   <script defer src="./app.js"></script>
 </head>
 <body>
@@ -165,25 +169,61 @@
         <h2>5 · Assinatura · somente após compilar</h2>
         <p>Escolha um AAB sem assinatura no histórico da opção 4 ou informe abaixo o número da execução e o nome exato do artefato. A assinatura acontece no GitHub Actions.</p>
         <details id="keygen-details" class="keygen-setup">
-          <summary>Criar e guardar minha chave de assinatura (primeira publicação)</summary>
-          <p class="small">Primeiro, crie no repositório um secret <code>ANDROID_KEYSTORE_PASSWORD</code> com uma senha forte de 20 ou mais caracteres. Guarde essa senha em seu gerenciador de senhas.</p>
-          <a id="keygen-secrets-link" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">Abrir Secrets do aplicativo no GitHub ↗</a>
-          <button id="keygen-start" class="secondary wide" type="button" disabled>Gerar chave criptografada no GitHub</button>
-          <p class="small"><strong>O que é .ubenc?</strong> É uma cópia criptografada da sua chave .jks, não é APK nem AAB. Este campo só é usado para recuperar uma chave gerada anteriormente; não precisa preenchê-lo para selecionar um build.</p>
-          <p class="small">Depois da execução, <a id="keygen-runs-link" href="https://github.com" target="_blank" rel="noopener noreferrer">baixe o ZIP de geração no GitHub Actions</a> e extraia o arquivo <code>upload-key.jks.ubenc</code>. O ZIP NÃO contém chave privada em texto claro. Nunca gere outra chave para substituir uma já usada no mesmo aplicativo.</p>
-          <label for="keygen-encrypted">Arquivo criptografado (.ubenc)</label>
-          <input id="keygen-encrypted" type="file" accept=".ubenc,application/octet-stream">
-          <label for="keygen-password">Senha de proteção configurada no GitHub</label>
-          <input id="keygen-password" type="password" autocomplete="off" placeholder="A mesma senha do secret ANDROID_KEYSTORE_PASSWORD">
-          <button id="keygen-unlock" class="secondary wide" type="button">Desbloquear localmente no navegador</button>
-          <p id="keygen-result" class="small" role="status" aria-live="polite">A senha e o arquivo não são enviados para nenhum servidor durante o desbloqueio.</p>
-          <div id="keygen-recovered" class="keygen-recovered" hidden>
-            <p>Chave recuperada. Alias: <code>upload</code>; senha da chave: igual à senha do keystore.</p>
-            <div class="inline"><button id="keygen-save-jks" type="button" class="secondary">Baixar minha chave .jks</button><button id="keygen-copy-base64" type="button" class="secondary">Copiar Base64 para Secret</button></div>
-            <p class="small">Guarde o JKS e as senhas fora do GitHub. Em Secrets, salve o Base64 em <code>ANDROID_KEYSTORE_BASE64</code>, o alias <code>upload</code> em <code>ANDROID_KEY_ALIAS</code> e a mesma senha em <code>ANDROID_KEY_PASSWORD</code>.</p>
+          <summary>🔑 Gerar chave e configurar assinatura automaticamente</summary>
+          <p>Para a <strong>primeira publicação</strong> deste aplicativo. Se o app já foi publicado, reutilize a chave original na opção avançada abaixo.</p>
+          <p id="keygen-secrets-status" class="small" role="status" aria-live="polite">Selecione o aplicativo para verificar os Secrets.</p>
+          <button id="keygen-auto-start" class="primary wide" type="button" disabled>1. Preparar chave e senha automaticamente</button>
+          <div id="keygen-password-box" class="keygen-password-box" hidden>
+            <p><strong>Guarde sua senha de recuperação!</strong> Não é possível recuperá-la do GitHub. Mantenha em um gerenciador de senhas privado.</p>
+            <label for="keygen-quick-password">Senha exclusiva gerada para este aplicativo</label>
+            <input id="keygen-quick-password" type="password" readonly autocomplete="off" autocapitalize="off" spellcheck="false">
+            <div class="inline">
+              <button id="keygen-password-copy" type="button" class="secondary">Copiar senha</button>
+              <button id="keygen-password-save" type="button" class="secondary">Salvar senha e instruções</button>
+            </div>
+            <p class="small">O arquivo de recuperação contém a senha em texto simples. Guarde-o em local seguro e privado.</p>
+            <label class="admob-check"><input id="keygen-saved-check" type="checkbox"> Confirmei que guardei esta senha em local seguro.</label>
+            <button id="keygen-confirm" type="button" class="primary wide" disabled>2. Confirmar e gerar chave criptografada</button>
           </div>
+          <p class="small"><strong>3. Recupere o JKS.</strong> Aguarde a geração no <a id="keygen-runs-link" href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub Actions</a>, baixe o ZIP e extraia <code>upload-key.jks.ubenc</code>. Este é o backup <strong>criptografado</strong> da chave, não um AAB.</p>
+          <label for="keygen-encrypted">Selecionar backup criptografado (.ubenc)</label>
+          <input id="keygen-encrypted" type="file" accept=".ubenc,application/octet-stream">
+          <label for="keygen-password">Senha de recuperação que você guardou</label>
+          <input id="keygen-password" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Senha gerada na etapa 1">
+          <button id="keygen-unlock" class="secondary wide" type="button">Desbloquear chave neste navegador</button>
+          <p id="keygen-result" class="small" role="status" aria-live="polite">O desbloqueio acontece somente no seu navegador HTTPS.</p>
+          <div id="keygen-recovered" class="keygen-recovered" hidden>
+            <p><strong>4. Guarde e configure.</strong> Baixe a sua chave JKS e faça backup antes de ativar a assinatura.</p>
+            <button id="keygen-save-jks" type="button" class="secondary wide">Baixar minha chave .jks</button>
+            <label class="admob-check"><input id="keygen-backup-confirmed" type="checkbox"> Guardei a chave .jks e a senha em local seguro.</label>
+            <button id="keygen-auto-configure" type="button" class="primary wide" disabled>Configurar quatro Secrets automaticamente</button>
+            <p class="small">Os dados são criptografados <strong>no navegador</strong> usando a chave pública do GitHub, antes do envio.</p>
+            <details><summary>Configuração manual (avançado)</summary>
+              <button id="keygen-copy-base64" type="button" class="secondary">Copiar Base64 para Secret</button>
+              <p class="small">Crie <code>ANDROID_KEYSTORE_BASE64</code> (Base64), <code>ANDROID_KEYSTORE_PASSWORD</code> (senha), <code>ANDROID_KEY_ALIAS</code> (<code>upload</code>) e <code>ANDROID_KEY_PASSWORD</code> (mesma senha).</p>
+            </details>
+          </div>
+          <details class="keygen-existing">
+            <summary>Já tenho um arquivo .jks/.keystore usado em outro sistema</summary>
+            <p class="small">Para atualizar um app da Google Play, <strong>reutilize o JKS original</strong>. Não substitua uma chave existente sem confirmar sua identidade.</p>
+            <label for="existing-key-file">Selecionar minha chave existente</label>
+            <input id="existing-key-file" type="file" accept=".jks,.keystore,.p12,.pfx,application/octet-stream">
+            <label for="existing-key-alias">Alias original</label>
+            <input id="existing-key-alias" value="upload" autocomplete="off" spellcheck="false">
+            <label for="existing-store-password">Senha original do keystore</label>
+            <input id="existing-store-password" type="password" autocomplete="off">
+            <label for="existing-key-password">Senha original da chave (deixe vazio se igual)</label>
+            <input id="existing-key-password" type="password" autocomplete="off">
+            <button id="existing-key-upload" type="button" class="secondary wide" disabled>Configurar Secrets usando minha chave original</button>
+          </details>
+          <details class="keygen-existing">
+            <summary>Modo manual (avançado)</summary>
+            <p class="small">Se você já cadastrou <code>ANDROID_KEYSTORE_PASSWORD</code> pelo GitHub, use o gerador antigo, sem sobrescrever chaves de aplicativos publicados.</p>
+            <a id="keygen-secrets-link" href="https://github.com" target="_blank" rel="noopener noreferrer">Abrir Secrets do aplicativo no GitHub ↗</a>
+            <button id="keygen-start" class="secondary wide" type="button" disabled>Gerar chave com senha cadastrada</button>
+          </details>
         </details>
-        <p class="small">Se você já possui uma chave de upload do aplicativo, reutilize-a. Não gere outra.</p>
+        <p class="small">Se este aplicativo já tem uma assinatura configurada, mantenha a chave. Ela será reutilizada em todas as atualizações.</p>
         <form id="sign-form">
           <div class="two">
             <div><label for="sign-run-id">Número da execução de origem (Run ID)</label><input id="sign-run-id" required inputmode="numeric" pattern="[0-9]+" placeholder="Ex.: 44784533268"></div>

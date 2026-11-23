@@ -41,6 +41,20 @@ Os artefatos da **última execução e das compilações anteriores** são consu
 
 Leia [o guia completo de implementação e limites](../docs/CONSOLE-UX-ADMOB-PROGRESSO.md).
 
+## Primeira assinatura sem preencher Secrets manualmente (automático)
+
+Na opção **5 — Assinatura**, abra **Gerar chave e configurar assinatura automaticamente**. A interface lê o estado atual dos Secrets do repositório **do aplicativo**; o token do Universal Build deve permitir `GET` Secrets/listagem/chave pública e `PUT` Secrets (permissão **Secrets: leitura e escrita**).
+
+1. **Preparar chave e senha automaticamente:** se não houver Secrets existentes, o painel cria uma senha forte **no navegador**. Copie/salve a senha e **confirme que a guardou**. O arquivo .txt baixado contém senha em **texto simples** e deve permanecer seguro.
+2. **Confirmar e gerar chave criptografada:** o painel cifra `ANDROID_KEYSTORE_PASSWORD` com a chave pública de Secrets do GitHub, cadastra o Secret via API, instala o workflow de chave se necessário e aciona o gerador. Só o backup `.ubenc` cifrado e o certificado público são entregues pelo Actions.
+3. **Recuperar JKS:** baixe o ZIP no GitHub Actions, extraia `upload-key.jks.ubenc`, importe no painel e desbloqueie com a senha guardada, **sem enviá-la para servidor**. Clique em **Baixar minha chave .jks**.
+4. **Configurar quatro Secrets automaticamente:** confirme que salvou o JKS e a senha e clique no botão. O navegador cifra individualmente a chave Base64, a senha, o alias e a senha da chave com crypto_box_seal compatível com a API GitHub Actions Secrets. GitHub recebe apenas valores cifrados. O Secret `ANDROID_KEYSTORE_BASE64` é criado **por último** como marcador de configuração completa. O painel confirma via listagem a presença dos quatro nomes, sem poder ler seus valores.
+5. **Assinar:** volte ao AAB selecionado e clique **Assinar AAB na nuvem**. O processo reutilizará a mesma chave para os próximos builds do mesmo aplicativo.
+
+**Já existe chave?** Use **Já tenho um arquivo .jks/.keystore usado em outro sistema** e informe alias e senhas originais. Não crie nova chave se o aplicativo já está publicado. O console bloqueia substituição automática se `ANDROID_KEYSTORE_BASE64` já existir; para alterações intencionais extraordinárias, gerencie os Secrets fora do assistente e confira a identidade da chave. Em caso de falha parcial, verifique os nomes dos Secrets no GitHub antes de repetir.
+
+**Limites de validação:** CI pode validar criptografia, UI e workflow, mas não substitui o teste com seu PAT no Android nem uma assinatura real com credenciais privadas. Não publique nem envie sua senha/JKS no chat.
+
 ## Como assinar AAB depois de compilar
 
 1. No painel, selecione `AAB sem assinatura` (`aab-unsigned`) e inicie o build.

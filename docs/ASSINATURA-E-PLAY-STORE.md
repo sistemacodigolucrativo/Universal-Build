@@ -21,7 +21,21 @@ Fontes oficiais:
 
 O `AAB` unsigned NÃO é aceito pela Play Store. O APK debug já vem assinado com chave de testes (não é o formato para novas publicações).
 
-## Gerar a primeira chave pelo Universal Build
+## Assistente automático de Secrets (novo)
+
+No Universal Build, opção 5, abra **Gerar chave e configurar assinatura automaticamente**. Requer permissão de **Secrets: leitura e escrita** no token e acesso administrativo ao repositório Android selecionado. Cada aplicativo tem sua própria keystore; os nomes dos quatro Secrets são padronizados. **Nunca copie a chave de um aplicativo para outro sem motivo e decisão explícita.**
+
+1. Clique **Preparar chave e senha automaticamente** (apenas para um app que ainda não foi publicado e sem Secrets de assinatura existentes). O navegador usa o gerador criptográfico seguro para produzir uma senha forte de 48 caracteres. **Salve a senha em local seguro** e confirme. Um arquivo opcional de recuperação é salvo em texto claro, não criptografado.
+2. Clique **Confirmar e gerar chave criptografada**. O navegador cifra a senha com a **chave pública de Secrets fornecida pela API do próprio GitHub** antes do PUT no repositório do aplicativo e então dispara o workflow de geração. O ZIP do workflow contém `upload-key.jks.ubenc` e certificado público, não o JKS em texto claro.
+3. Extraia `upload-key.jks.ubenc` e desbloqueie-o **localmente** com sua senha. Baixe o `.jks` original e mantenha cópias independentes. Não recarregue a página até baixar os arquivos. Se recarregar, reimporte o `.ubenc` e use a senha que salvou.
+4. Confirme o backup e clique **Configurar quatro Secrets automaticamente**. O navegador usa **TweetNaCl + BLAKE2b-192** (código local auditável e licenças no repositório) para criptografar no padrão `crypto_box_seal`; chama a API GitHub Actions Secrets com `encrypted_value` e `key_id`. A chave privada não é enviada em texto claro. Primeiro cadastra senha, alias e senha da chave; **por último** o JKS Base64. Confirma apenas os quatro **nomes**, não os valores.
+5. Assine o AAB sem assinatura. O botão de assinatura da opção 5 continua habilitado por Run ID/nome válidos; o workflow efetivo depende dos quatro Secrets corretos. Assinar depois não reconstrói o aplicativo.
+
+**App já publicado:** nunca gere outra chave; use seu JKS/keystore original em **Já tenho um arquivo .jks/.keystore usado em outro sistema** e informe alias e senhas originais. Se já há JKS em Secrets, o assistente não o substitui. O sistema não consegue verificar a identidade do certificado original apenas porque um JKS foi selecionado; compare a impressão digital do certificado com a registrada no Play Console.
+
+**Falhas e recuperação:** se o gerador falhar após criar `ANDROID_KEYSTORE_PASSWORD`, confira o histórico Actions antes de executar novamente. O modo manual permite continuar com a senha original. Se a configuração dos quatro Secrets parar no meio, verifique o estado no GitHub; a chave Base64 é gravada por último, e a página pode ser recarregada para reimportar o backup .ubenc e repetir a configuração, sem gerar outra chave. Nunca cole valores de Secrets em código, commits ou mensagens.
+
+## Gerar a primeira chave pelo Universal Build (método manual anterior)
 
 Na PR #10, a seção 5 permite gerar chave sem instalar Termux/Android Studio. Configure no repositório do **aplicativo** o Secret `ANDROID_KEYSTORE_PASSWORD` com senha exclusiva de **20 ou mais caracteres**. Clique em **Gerar chave criptografada no GitHub** e aguarde.
 

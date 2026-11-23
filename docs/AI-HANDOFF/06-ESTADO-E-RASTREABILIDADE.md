@@ -130,3 +130,13 @@ Os registros anteriores neste arquivo são **snapshot histórico** anterior a es
 - **Branch:** `fix/build-history-sign-flow-20261123`. Inclui paginação de 20 runs, consultas sob demanda de artefatos por execução e validação de existência/expiração no GitHub antes do dispatch. `.ubenc` é o backup criptografado da chave, não o AAB.
 - **Gates pendentes:** CI, PR, merge autorizado, deploy Pages e teste autenticado Android. Assinatura real requer os secrets no repositório do aplicativo; código em branch não equivale a funcionalidade publicada.
 - **Rollback:** reverter o commit da PR (somente dashboard, documentação e testes).
+
+
+## Implementação — automação de Secrets de assinatura — 23/11/2026
+
+- **ID:** UB-KEY-002.
+- **Branch:** `feat/automatic-signing-secrets-20261123`; base `main` `fdcc3a6befa7260ba0a3fa5cc919a722ce5395e1`.
+- **Objetivo:** configuração por aplicativo sem cadastrar quatro Secrets manualmente, mantendo isolamento da keystore e backup obrigatório.
+- **Arquivos:** `dashboard/signing-setup.js`, `dashboard/secret-crypto.js`, bibliotecas locais `dashboard/vendor/`, `dashboard/index.html`, `dashboard/app.js`, `tests/auto-secrets.test.cjs`, ajustes de CI e documentação.
+- **Proteções:** GET público de chave do GitHub para Secrets (não confundir com keystore), cifrar no browser com `crypto_box_seal` + BLAKE2b, bloquear substituição de Base64 de chave existente, exigir backup de senha + JKS. Sem armazenamento de senhas adicionais em localStorage. Uso de `.ubenc` criptografado e validação da presença dos quatro Secrets.
+- **Gates:** revisão, CI, PR e merge autorizado, deploy Pages e teste autenticado no Android. Não declarar uso do usuário concluído sem teste de ponta a ponta.

@@ -52,7 +52,12 @@ A nova interface ordena as etapas como **Repositório/branch → Configuração 
 
 [Manual completo da nova interface](docs/CONSOLE-UX-ADMOB-PROGRESSO.md).
 
-## Criar a primeira chave de upload pelo console (PR #10)
+## Configuração automática de assinatura (23/11/2026)
+O painel da etapa 5 permite gerar uma senha forte no próprio navegador, cadastrar **automaticamente** o primeiro Secret de proteção no GitHub, disparar a geração do JKS e, depois de baixar o backup `.ubenc` e recuperar a chave localmente, cadastrar os quatro Secrets **criptografados no navegador**, usando a chave pública oficial do repositório e a API GitHub. Não há transferência de chave ou senha em texto claro na API. O processo exige o token do usuário com permissão de **Actions Secrets: leitura e escrita**, e confirmação de backup da senha e do JKS. O GitHub não revela valores de Secrets já cadastrados; aplicativos publicados devem reutilizar sua chave original. Também há opção de importar um keystore anterior sem enviar sua chave privada desprotegida.
+
+Não é um processo de um único clique porque guardar a chave de upload e sua senha é indispensável para futuras atualizações. Nenhum Secret é salvo no `localStorage` do painel. Leia [Assinatura e Play Store](docs/ASSINATURA-E-PLAY-STORE.md).
+
+## Criar a primeira chave de upload pelo console (fluxo manual anterior, avançado)
 
 A etapa 5 inclui gerador de chave com GitHub Actions e recuperação de backup criptografado via WebCrypto. Configure primeiro uma senha forte em `ANDROID_KEYSTORE_PASSWORD` no GitHub Secrets do aplicativo; baixe o ZIP contendo `upload-key.jks.ubenc` e o certificado `.pem`, importe o arquivo criptografado no painel, informe a senha para desbloquear **localmente**, baixe o JKS e copie o Base64 para `ANDROID_KEYSTORE_BASE64`. O alias é `upload`; a senha da chave é igual à do keystore. Guarde backups independentes. Não use este gerador para substituir chave de um app já publicado.
 
