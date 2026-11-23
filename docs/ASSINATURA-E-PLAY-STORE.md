@@ -21,6 +21,16 @@ Fontes oficiais:
 
 O `AAB` unsigned NÃO é aceito pela Play Store. O APK debug já vem assinado com chave de testes (não é o formato para novas publicações).
 
+## Gerar a primeira chave pelo Universal Build
+
+Na PR #10, a seção 5 permite gerar chave sem instalar Termux/Android Studio. Configure no repositório do **aplicativo** o Secret `ANDROID_KEYSTORE_PASSWORD` com senha exclusiva de **20 ou mais caracteres**. Clique em **Gerar chave criptografada no GitHub** e aguarde.
+
+O workflow produz um keystore PKCS#12 com extensão `.jks` (compatível com o JDK de assinatura), alias `upload`, senha da chave igual à senha do keystore e certificado público PEM. A chave é **criptografada antes do upload**. O Artifact contém `upload-key.jks.ubenc`, certificado `upload-certificate.pem` e instruções, nunca a chave privada sem criptografia.
+
+Baixe e extraia o ZIP, importe o `.ubenc` no painel HTTPS, informe a senha (desbloqueio local pelo WebCrypto), baixe o JKS e use **Copiar Base64 para Secret** para preencher `ANDROID_KEYSTORE_BASE64`. Configure `ANDROID_KEY_ALIAS` como `upload` e `ANDROID_KEY_PASSWORD` igual a `ANDROID_KEYSTORE_PASSWORD`.
+
+Para atualizar um app já publicado, reutilize a chave original. O workflow bloqueia nova geração se `ANDROID_KEYSTORE_BASE64` existir; isso não elimina a necessidade de guardar cópia independente. O artifact criptografado expira em 7 dias. Nenhum secret ou chave deve ser compartilhado por chat.
+
 ## Como provisionar assinatura com segurança
 
 Em cada repositório do **aplicativo** (não no repositório público Universal-Build):

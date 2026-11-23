@@ -47,10 +47,16 @@ A nova interface ordena as etapas como **Repositório/branch → Configuração 
 - Configurações AdMob são persistidas por **aplicativo e branch** em `config/universal-build-admob.json`, com modos `off/test/live` e formatos individuais.
 - Avisos e erros temporários aparecem como toasts flutuantes.
 - Progresso é atualizado pela API do **GitHub Actions**; representa etapas reportadas, **não** um percentual interno do Gradle.
-- APK/AAB são listados no painel e baixados diretamente quando o navegador permite; o fallback pode ser ZIP ou download via GitHub.
+- Na PR #10, o build atual aparece em destaque, o histórico é recolhido e o download abre o ZIP autenticado do GitHub, evitando CORS. Extraia o ZIP no Android.
 - O console só fornece configurações: AdMob nativo requer módulo Android no app e nova compilação. O Kotlin Master e o QR Studio receberam o módulo em `main` em 21/11/2026; outros apps derivados **não recebem automaticamente** essa mudança.
 
 [Manual completo da nova interface](docs/CONSOLE-UX-ADMOB-PROGRESSO.md).
+
+## Criar a primeira chave de upload pelo console (PR #10)
+
+A etapa 5 inclui gerador de chave com GitHub Actions e recuperação de backup criptografado via WebCrypto. Configure primeiro uma senha forte em `ANDROID_KEYSTORE_PASSWORD` no GitHub Secrets do aplicativo; baixe o ZIP contendo `upload-key.jks.ubenc` e o certificado `.pem`, importe o arquivo criptografado no painel, informe a senha para desbloquear **localmente**, baixe o JKS e copie o Base64 para `ANDROID_KEYSTORE_BASE64`. O alias é `upload`; a senha da chave é igual à do keystore. Guarde backups independentes. Não use este gerador para substituir chave de um app já publicado.
+
+[Auditoria completa do fluxo e roadmap](docs/AUDITORIA-FLUXO-2026-11-23.md).
 
 ## Assinatura DEPOIS da compilação
 

@@ -65,3 +65,12 @@ No código proposto, `dev/staging` usam os IDs demonstrativos e `prod` somente `
 - [Assinatura e Play](ASSINATURA-E-PLAY-STORE.md)
 - [API oficial de artifacts do GitHub](https://docs.github.com/en/rest/actions/artifacts)
 - [DecompressionStream](https://developer.mozilla.org/en-US/docs/Web/API/DecompressionStream/DecompressionStream)
+
+## Alterações da PR #10 — 23/11/2026
+
+Atualização **em branch**, sem inferência de deploy: o card 4 exibe somente o build atual e guarda os anteriores num dropdown. O download passa a usar o URL de artifact autenticado do GitHub, sem fazer fetch cross-origin sujeito a CORS, gerando ZIP para extração no Android. O histórico integral fica acessível pela página GitHub Actions.
+
+O card 5 inclui assistente de primeira chave Android: geração PKCS#12 / PEM no GitHub Actions, backup JKS criptografado com AES-256-GCM/PBKDF2 e desbloqueio local por WebCrypto. Para assinar, continuam obrigatórios os quatro Secrets. Outros tipos de anúncios e parâmetros técnicos do build foram movidos para detalhes expansíveis.
+
+[Auditoria end-to-end e roadmap](AUDITORIA-FLUXO-2026-11-23.md).
+

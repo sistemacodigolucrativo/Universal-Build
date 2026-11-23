@@ -13,8 +13,9 @@
   let branchRequestId = 0;
   let refreshRequestId = 0;
   let lastDispatch = null;
-  const activeDownloads = new Set();
+  let recoveredUploadKey = null;
   const artifactsByRun = new Map();
+  const knownRunIds = new Map();
   let currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
   const $ = (id) => document.getElementById(id);
 
@@ -48,7 +49,17 @@
     day.setHours(24, 0, 0, 0);
     return day.getTime();
   }
+  // Private key material exists only in memory until the user downloads it.
+  function forgetRecoveredKey() {
+    if (recoveredUploadKey) new Uint8Array(recoveredUploadKey).fill(0);
+    recoveredUploadKey = null;
+    $("keygen-recovered").hidden = true;
+    $("keygen-password").value = "";
+    $("keygen-encrypted").value = "";
+    $("keygen-result").textContent = "A chave será desbloqueada somente neste navegador.";
+  }
   function clearSession() {
+    forgetRecoveredKey();
     state.token = "";
     state.login = "";
     state.expires = 0;
@@ -61,9 +72,13 @@
     currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
     lastDispatch = null;
     artifactsByRun.clear();
+    knownRunIds.clear();
     $("branch-select").replaceChildren(new Option("Selecione primeiro um repositório", ""));
     $("branch-select").disabled = true;
     $("build-progress").hidden = true;
+    $("run-list").replaceChildren();
+    $("history-list").replaceChildren();
+    $("history-details").open = false;
     $("admob-save").disabled = true;
     $("admob-status").textContent = "Selecione um projeto Android para carregar as configurações.";
     localStorage.removeItem(STORAGE);
@@ -295,6 +310,10 @@
     $("run-btn").disabled = !active;
     $("refresh-runs").disabled = !active;
     $("sign-btn").disabled = !active;
+    $("keygen-start").disabled = !active;
+    forgetRecoveredKey();
+    $("history-details").open = false;
+    $("history-list").replaceChildren();
     $("admob-save").disabled = true;
     $("open-repo").hidden = !active;
     adConfigRequestId++;
@@ -302,6 +321,8 @@
     refreshRequestId++;
     lastDispatch = null;
     artifactsByRun.clear();
+    // The previous repository must never leave stale artifact buttons on screen.
+    $("run-list").replaceChildren();
     $("build-progress").hidden = true;
     currentAdConfig = { name: "", branch: "", sha: null, loaded: false };
     renderAdmobConfig(window.UniversalAdMobConfig.defaults());
@@ -315,6 +336,10 @@
     if (active) {
       $("open-repo").href = "https://github.com/" + state.repo.full_name;
       $("secrets-link").href = "https://github.com/" + state.repo.full_name + "/settings/secrets/actions";
+      $("keygen-secrets-link").href = $("secrets-link").href;
+      $("keygen-runs-link").href = "https://github.com/" + state.repo.full_name + "/actions/workflows/universal-keygen.yml";
+      $("sign-runs-link").href = "https://github.com/" + state.repo.full_name + "/actions/workflows/universal-sign.yml";
+      $("all-builds-link").href = "https://github.com/" + state.repo.full_name + "/actions/workflows/universal-build.yml";
       loadBranches(state.repo);
     } else {
       $("run-list").replaceChildren();
@@ -335,6 +360,11 @@
     $("admob-status").textContent = "Carregando configurações da branch " + selectedBranch() + "...";
     $("build-progress").hidden = true;
     lastDispatch = null;
+    forgetRecoveredKey();
+    $("history-details").open = false;
+    $("history-list").replaceChildren();
+    // Invalidate artifacts belonging to the previously selected branch immediately.
+    $("run-list").replaceChildren();
     loadAdmobConfig(state.repo);
     refreshRuns();
   }
@@ -480,17 +510,105 @@
     await api(path, { method: "PUT", body: JSON.stringify(body) });
     return true;
   }
+  async function ensureKeygenWorkflow(force = false) {
+    const repo = selected();
+    const path = repoPath(repo) + "/contents/.github/workflows/universal-keygen.yml";
+    let existing = null;
+    try { existing = await api(path + "?ref=" + encodeURIComponent(repo.default_branch)); }
+    catch (e) { if (e.status !== 404) throw e; }
+    if (existing && !force) return false;
+    const yml = await template("android-keygen.yml");
+    const body = {
+      message: (existing ? "ci: atualizar" : "ci: instalar") + " gerador de chave Universal Build",
+      content: utf8Base64(yml), branch: repo.default_branch
+    };
+    if (existing) body.sha = existing.sha;
+    await api(path, { method: "PUT", body: JSON.stringify(body) });
+    return true;
+  }
+  async function generateUploadKey() {
+    const btn = $("keygen-start");
+    const repo = selected();
+    if (!confirm("Gerar chave SOMENTE para primeiro uso em " + repo.full_name +
+        "? Se já publicou este app, reutilize a chave anterior. Confirma que guardou " +
+        "uma senha forte em ANDROID_KEYSTORE_PASSWORD no GitHub?")) return;
+    btn.disabled = true;
+    try {
+      const created = await ensureKeygenWorkflow(false);
+      if (created) notice("Workflow de chaves instalado. A ativação no GitHub pode levar alguns segundos.");
+      let failure;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          await api(repoPath(repo) + "/actions/workflows/universal-keygen.yml/dispatches", {
+            method: "POST", body: JSON.stringify({ ref: repo.default_branch })
+          });
+          failure = null;
+          break;
+        } catch (err) {
+          failure = err;
+          if (err.status !== 404 || attempt === 3) break;
+          await new Promise(resolve => window.setTimeout(resolve, 2000));
+        }
+      }
+      if (failure) throw failure;
+      notice("Geração solicitada. Abra o link do GitHub Actions e baixe o ZIP criptografado quando concluir.");
+      $("keygen-runs-link").focus();
+    } catch (err) {
+      notice("Não foi possível gerar chave: " + err.message, true);
+    } finally { btn.disabled = !state.repo; }
+  }
+  async function unlockUploadKey() {
+    const btn = $("keygen-unlock");
+    const file = $("keygen-encrypted").files[0];
+    const password = $("keygen-password").value;
+    if (!file || !file.name.endsWith(".ubenc")) return notice("Selecione um arquivo .ubenc.", true);
+    btn.disabled = true;
+    if (recoveredUploadKey) new Uint8Array(recoveredUploadKey).fill(0);
+    recoveredUploadKey = null;
+    $("keygen-recovered").hidden = true;
+    try {
+      const encrypted = await file.arrayBuffer();
+      recoveredUploadKey = await window.UniversalKeygen.decrypt(encrypted, password);
+      $("keygen-recovered").hidden = false;
+      $("keygen-result").textContent = "Chave desbloqueada localmente. Baixe e faça backup agora.";
+    } catch (err) {
+      $("keygen-result").textContent = err.message;
+      notice(err.message, true);
+    } finally {
+      $("keygen-password").value = "";
+      btn.disabled = false;
+    }
+  }
+  function saveRecoveredKey() {
+    if (!recoveredUploadKey) return;
+    const url = URL.createObjectURL(new Blob([recoveredUploadKey], { type: "application/octet-stream" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = "android-upload-key.jks";
+    document.body.append(a); a.click(); a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    notice("Download do JKS iniciado. Guarde cópia independente da chave e das senhas.");
+  }
+  async function copyRecoveredBase64() {
+    if (!recoveredUploadKey) return;
+    try {
+      await navigator.clipboard.writeText(window.UniversalKeygen.toBase64(recoveredUploadKey));
+      notice("Base64 copiado. Cole em ANDROID_KEYSTORE_BASE64 nos Secrets do aplicativo.");
+    } catch (_) {
+      notice("O navegador não permitiu copiar. Use outro navegador HTTPS com acesso à área de transferência.", true);
+    }
+  }
   async function installWorkflow() {
     const btn = $("install-btn");
     btn.disabled = true;
-    if (!confirm("Instalar ou sobrescrever os dois workflows do Universal Build neste repositório?")) {
+    if (!confirm("Instalar ou sobrescrever os três workflows (build, assinatura e chave) neste repositório?")) {
       btn.disabled = !state.repo;
       return;
     }
-    notice("Instalando os workflows de compilação e assinatura...");
+    notice("Instalando workflows de compilação, assinatura e geração de chaves...");
     try {
       await ensureWorkflow(true);
       await ensureSignWorkflow(true);
+      await ensureKeygenWorkflow(true);
       notice("Workflows instalados/atualizados. A ativação pode levar alguns segundos.");
     } catch (err) { notice(err.message, true); }
     finally { btn.disabled = !state.repo; }
@@ -512,7 +630,7 @@
         method: "POST",
         body: JSON.stringify({ ref: selectedBranch(repo), inputs: { source_run_id: runId, artifact_name: name } })
       });
-      notice("Assinatura solicitada! Acompanhe o processo no histórico. A chave de upload deve estar configurada nos Secrets do aplicativo.");
+      notice("Assinatura solicitada! Acompanhe pelo link de assinaturas do GitHub. Os quatro Secrets devem estar cadastrados.");
       await refreshRuns();
     } catch (err) { notice(err.message, true); }
     finally { btn.disabled = !state.repo; }
@@ -577,7 +695,10 @@
         }
       }
       if (error) throw error;
-      lastDispatch = { repo: repo.full_name, branch, at: Date.now() };
+      lastDispatch = { repo: repo.full_name, branch, at: Date.now(),
+        knownRunIds: (knownRunIds.get(repo.full_name + "/" + branch) || []).slice() };
+      // Hide previous build artifacts before the next GitHub API response arrives.
+      $("run-list").querySelectorAll(".artifact-line").forEach(line => line.remove());
       $("build-progress").hidden = false;
       $("build-progress-title").textContent = "Solicitação enviada · aguardando GitHub Actions";
       $("build-progress-bar").removeAttribute("value");
@@ -589,51 +710,11 @@
     finally { btn.disabled = !state.repo; }
   }
 
-  async function downloadArtifact(repo, run, artifact, button) {
-    const key = repo.full_name + "/" + artifact.id;
-    if (activeDownloads.has(key)) return;
-    if (artifact.size_in_bytes > window.UniversalArtifactDownload.MAX_ZIP) {
-      notice("Artefato muito grande para baixar pelo navegador. Use o GitHub Actions.", true);
-      return;
-    }
-    activeDownloads.add(key);
-    button.disabled = true;
-    const oldText = button.textContent;
-    button.textContent = "Baixando...";
-    try {
-      // GitHub API returns a 302 to a temporary archive URL. A browser may
-      // block the redirected cross-origin fetch: keep a GitHub fallback link.
-      const response = await fetch(API + repoPath(repo) + "/actions/artifacts/" +
-        encodeURIComponent(artifact.id) + "/zip", {
-        headers: {
-          Accept: "application/vnd.github+json",
-          Authorization: "Bearer " + state.token,
-          "X-GitHub-Api-Version": "2022-11-28"
-        },
-        redirect: "follow"
-      });
-      if (!response.ok) throw new Error("GitHub HTTP " + response.status);
-      const data = await response.arrayBuffer();
-      const file = await window.UniversalArtifactDownload.prepare(data, artifact.name);
-      const url = URL.createObjectURL(file.blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = file.filename;
-      anchor.style.display = "none";
-      document.body.append(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-      notice(file.archive ? "Download do ZIP iniciado. Extraia o APK/AAB no celular." :
-        "Download do arquivo " + file.filename + " iniciado.");
-    } catch (error) {
-      notice("Download direto indisponível: " + error.message +
-        ". Abra 'Ver logs' para baixar pelo GitHub.", true);
-    } finally {
-      activeDownloads.delete(key);
-      button.disabled = false;
-      button.textContent = oldText;
-    }
+  // A native GitHub link downloads the ZIP in the signed-in browser without
+  // reading GitHub's 302 artifact redirect through CORS-blocked fetch().
+  function downloadArtifact(repo, run, artifact) {
+    return "https://github.com/" + repo.full_name + "/actions/runs/" +
+      encodeURIComponent(run.id) + "/artifacts/" + encodeURIComponent(artifact.id);
   }
 
   function createProgress(data, compact = false) {
@@ -664,22 +745,15 @@
     return "Artefato da execução";
   }
 
-  function displayPrimaryProgress(runs, details, repo, branch) {
+  function displayPrimaryProgress(selection, details, branch) {
     const box = $("build-progress");
-    const pending = lastDispatch && lastDispatch.repo === repo.full_name &&
-      lastDispatch.branch === branch && Date.now() - lastDispatch.at < 120000;
-    const dispatchedRuns = pending ?
-      runs.filter(run => new Date(run.created_at).getTime() >= lastDispatch.at - 10000) : [];
-    const current = pending ?
-      (dispatchedRuns.find(run => run.status !== "completed") || dispatchedRuns[0]) :
-      (runs.find(run => run.status !== "completed") || runs[0]);
+    const current = selection.current;
     if (!current) {
-      if (lastDispatch && lastDispatch.repo === repo.full_name &&
-          lastDispatch.branch === branch && Date.now() - lastDispatch.at < 120000) {
+      if (selection.pending) {
         box.hidden = false;
         $("build-progress-title").textContent = "Aguardando início do workflow na branch " + branch;
         $("build-progress-bar").removeAttribute("value");
-        $("build-progress-label").textContent = "O GitHub ainda não disponibilizou as etapas.";
+        $("build-progress-label").textContent = "O GitHub ainda não disponibilizou uma execução nova.";
       } else {
         box.hidden = true;
       }
@@ -694,7 +768,7 @@
     else $("build-progress-bar").value = data.percent;
     $("build-progress-label").textContent = data.total ?
       data.done + "/" + data.total + " etapas concluídas · dados do GitHub Actions, não do Gradle." :
-      "Aguardando etapas do GitHub Actions; atualização automática.";
+      "Aguardando detalhes das etapas no GitHub Actions; atualização automática.";
   }
 
   async function refreshRuns() {
@@ -711,7 +785,7 @@
       list.append(p);
     }
     try {
-      const workflows = ["universal-build.yml", "universal-sign.yml", "release.yml", "ci.yml"];
+      const workflows = ["universal-build.yml"];
       const groups = await Promise.all(workflows.map(async workflow => {
         try {
           const url = repoPath(repo) + "/actions/workflows/" + workflow +
@@ -738,17 +812,22 @@
       }));
       if (request !== refreshRequestId || !state.repo ||
           state.repo.full_name !== repo.full_name || selectedBranch(repo) !== branch) return;
+      knownRunIds.set(repo.full_name + "/" + branch, runs.map(run => run.id));
       const details = new Map(progressRows);
-      displayPrimaryProgress(runs, details, repo, branch);
+      const selection = window.UniversalBuildProgress.selectCurrentRun(
+        runs, lastDispatch, repo.full_name, branch);
+      displayPrimaryProgress(selection, details, branch);
       const fragment = document.createDocumentFragment();
-      if (!runs.length) {
+      const historyFragment = document.createDocumentFragment();
+      let historicalCount = 0;
+      if (!selection.current) {
         const p = document.createElement("p");
         p.className = "small";
-        p.textContent = "Nenhuma execução recente nesta branch. Inicie um build para gerar downloads.";
+        p.textContent = selection.pending ? "Identificando o novo build no GitHub Actions..." :
+          "Nenhuma compilação recente nesta branch. Inicie um build.";
         fragment.append(p);
       }
       for (const run of runs) {
-        const isSign = /universal-sign\.yml$|release\.yml$/.test(run.path || "");
         const statusValue = run.conclusion || run.status;
         const row = document.createElement("div");
         row.className = "run";
@@ -756,7 +835,7 @@
         main.className = "run-details";
         const title = document.createElement("div");
         title.className = "run-title";
-        title.textContent = (isSign ? "Assinatura" : "Build") + " #" + run.run_number +
+        title.textContent = "Build #" + run.run_number +
           " · " + run.head_branch;
         const meta = document.createElement("div");
         meta.className = "run-meta";
@@ -779,7 +858,8 @@
           timed_out: "Tempo esgotado", action_required: "Ação necessária"
         })[statusValue] || statusValue;
         row.append(main, badge);
-        if (statusValue === "success") {
+        // Keep old runs visible for logs, but never offer artifacts from a previous run.
+        if (statusValue === "success" && selection.current?.id === run.id) {
           try {
             let response = artifactsByRun.get(repo.full_name + "/" + run.id);
             if (!response) {
@@ -799,14 +879,16 @@
               if (!artifact.expired) {
                 const actions = document.createElement("div");
                 actions.className = "artifact-actions";
-                const download = document.createElement("button");
-                download.type = "button";
+                const download = document.createElement("a");
                 download.className = "secondary artifact-download";
-                download.textContent = "Baixar arquivo";
-                download.addEventListener("click", () => downloadArtifact(repo, run, artifact, download));
+                download.href = downloadArtifact(repo, run, artifact);
+                download.target = "_blank";
+                download.rel = "noopener noreferrer";
+                download.textContent = "Baixar ZIP no GitHub";
+                download.title = "Requer sessão iniciada no GitHub";
                 actions.append(download);
-                if (!isSign && (artifact.name.endsWith("-aab-unsigned") ||
-                    artifact.name.endsWith("-both-unsigned"))) {
+                if (artifact.name.endsWith("-aab-unsigned") ||
+                    artifact.name.endsWith("-both-unsigned")) {
                   const sign = document.createElement("button");
                   sign.type = "button";
                   sign.className = "secondary";
@@ -830,9 +912,13 @@
             main.append(info);
           }
         }
-        fragment.append(row);
+        if (selection.current?.id === run.id) fragment.append(row);
+        else { historicalCount++; historyFragment.append(row); }
       }
       list.replaceChildren(fragment);
+      $("history-list").replaceChildren(historyFragment);
+      $("history-summary").textContent = "Compilações anteriores (" + historicalCount + ")";
+      $("history-details").hidden = historicalCount === 0;
     } catch (error) {
       if (request !== refreshRequestId || !state.repo ||
           state.repo.full_name !== repo.full_name) return;
@@ -840,6 +926,8 @@
       p.className = "small";
       p.textContent = "Não foi possível atualizar o histórico: " + error.message;
       list.replaceChildren(p);
+      $("history-list").replaceChildren();
+      $("history-details").hidden = true;
       // Periodic polling must not flood the toast stack when the API rate-limits.
     }
   }
@@ -854,6 +942,10 @@
   $("build-form").addEventListener("submit", runBuild);
   $("admob-form").addEventListener("submit", saveAdmobConfig);
   $("sign-form").addEventListener("submit", signBuild);
+  $("keygen-start").addEventListener("click", generateUploadKey);
+  $("keygen-unlock").addEventListener("click", unlockUploadKey);
+  $("keygen-save-jks").addEventListener("click", saveRecoveredKey);
+  $("keygen-copy-base64").addEventListener("click", copyRecoveredBase64);
   $("refresh-runs").addEventListener("click", refreshRuns);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) isSessionValid();

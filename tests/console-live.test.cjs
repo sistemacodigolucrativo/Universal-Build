@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
-const { summarize } = require("../dashboard/build-progress.js");
+const { summarize, selectCurrentRun } = require("../dashboard/build-progress.js");
 const { prepare, entries } = require("../dashboard/artifact-download.js");
 const source = file => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
 
@@ -25,6 +25,37 @@ test("build progress reflects GitHub steps, not guessed Gradle percentage", () =
   assert.equal(summarize({ status: "queued" }, []).percent, null);
   assert.equal(summarize({ status: "completed", conclusion: "success" }, []).percent, 100);
   assert.match(summarize({ status: "completed", conclusion: "failure" }, []).stage, /falhou/);
+});
+
+
+test("active run is shown even if GitHub created_at precedes the dispatch window", () => {
+  const now = Date.parse("2026-11-21T14:09:00Z");
+  const old = { id: 38, status: "completed", conclusion: "success", created_at: "2026-11-21T14:03:57Z" };
+  const active = { id: 39, status: "in_progress", created_at: "2026-11-21T14:08:01Z" };
+  const dispatch = { repo: "org/app", branch: "main", at: now - 10000, knownRunIds: [38] };
+  const selected = selectCurrentRun([active, old], dispatch, "org/app", "main", now);
+  assert.equal(selected.current.id, 39);
+  assert.equal(selected.pending, true);
+  // Only the selected current run is eligible for artifacts: old successful #38 is not.
+  assert.notEqual(selected.current.id, old.id);
+});
+
+test("previous successful build is not selected while a new dispatch is awaiting its run", () => {
+  const now = Date.parse("2026-11-21T14:09:00Z");
+  const old = { id: 38, status: "completed", created_at: "2026-11-21T14:03:57Z" };
+  const dispatch = { repo: "org/app", branch: "main", at: now - 5000, knownRunIds: [38] };
+  assert.equal(selectCurrentRun([old], dispatch, "org/app", "main", now).current, null);
+  const fresh = { id: 39, status: "completed", created_at: "2026-11-21T14:08:01Z" };
+  assert.equal(selectCurrentRun([fresh, old], dispatch, "org/app", "main", now).current.id, 39);
+});
+
+test("without pending dispatch the live run wins and branch mismatches do not hide history", () => {
+  const old = { id: 38, status: "completed", created_at: "2026-11-21T14:03:57Z" };
+  const live = { id: 39, status: "queued", created_at: "2026-11-21T14:08:01Z" };
+  const dispatch = { repo: "org/app", branch: "other", at: Date.now(), knownRunIds: [38] };
+  const selected = selectCurrentRun([live, old], dispatch, "org/app", "main");
+  assert.equal(selected.pending, false);
+  assert.equal(selected.current.id, 39);
 });
 
 function makeZip(contents) {
@@ -95,14 +126,25 @@ test("console UI is wired to real Actions jobs and artifact download", () => {
     "build-progress-bar", "build-progress-title", "build-progress-label", "admob-settings"]) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
-  assert.match(html, /src="\.\/artifact-download\.js"/);
+  assert.doesNotMatch(html, /src="\.\/artifact-download\.js"/);
   assert.match(html, /src="\.\/build-progress\.js"/);
+  assert.match(html, /src="\.\/keygen-client\.js"/);
+  for (const id of ["history-details", "history-list", "keygen-start", "keygen-unlock", "keygen-save-jks", "keygen-copy-base64"]) assert.match(html, new RegExp('id="' + id + '"'));
   assert.match(js, /function downloadArtifact\(/);
-  assert.match(js, /\/actions\/artifacts\//);
+  assert.match(js, /"universal-build.yml"\];/);
+  assert.match(js, /historyFragment\.append\(row\)/);
+  assert.match(js, /"history-summary"\)\.textContent/);
+  assert.match(js, /\/actions\/runs\//);
+  assert.match(js, /\/artifacts\//);
+  assert.doesNotMatch(js, /redirect: "follow"/);
   assert.match(js, /\/actions\/runs\/" \+ run\.id \+ "\/jobs/);
   assert.match(js, /ref: branch, inputs/);
   assert.match(js, /function selectedBranch/);
   assert.match(js, /function notice\(/);
+  assert.match(js, /selectCurrentRun\(/);
+  assert.match(js, /querySelectorAll\("\.artifact-line"\)/);
+  assert.match(js, /"run-list"\)\.replaceChildren\(\)/);
+  assert.match(js, /statusValue === "success" && selection\.current\?\.id === run\.id/);
   assert.ok(html.indexOf("2 · Monetização") < html.indexOf("3 · Configurar"));
   assert.ok(html.indexOf("3 · Configurar") < html.indexOf("4 · Progresso"));
   assert.ok(html.indexOf("4 · Progresso") < html.indexOf("5 · Assinatura"));
