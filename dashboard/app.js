@@ -369,6 +369,7 @@
       $("run-list").append(p);
     }
     window.UniversalSigningSetup?.onRepoChange();
+    window.dispatchEvent(new CustomEvent("ub:repo-updated"));
   }
 
   function changeBranch() {
