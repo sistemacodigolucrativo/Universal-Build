@@ -35,6 +35,8 @@ jobs:
           node --check scripts/keygen-encrypt.cjs
       - name: Testar filtro de repositórios Android
         run: node --test tests/android-repos.test.cjs tests/test-console-build-config.cjs tests/admob-settings.test.cjs tests/console-live.test.cjs tests/keygen.test.cjs
+      - name: Simular geração e recuperação real de chave Android
+        run: bash tests/test-keygen-workflow.sh
       - name: Auditar IDs e referências do painel
         run: python3 tests/test-dashboard.py
       - name: Testar identificação de projeto
