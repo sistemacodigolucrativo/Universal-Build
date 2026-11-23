@@ -17,6 +17,7 @@
   <script defer src="./secret-crypto.js"></script>
   <script defer src="./signing-setup.js"></script>
   <script defer src="./app.js"></script>
+  <script defer src="./wizard-flow.js"></script>
 </head>
 <body>
   <div id="toast-stack" class="toast-stack" aria-live="polite" aria-relevant="additions"></div>
@@ -43,8 +44,20 @@
         <div><span class="eyebrow">Painel de compilação</span><h1>Seus projetos Android</h1><p id="connection-info">Conectado</p></div>
         <button id="logout-btn" class="ghost">Sair</button>
       </div>
+      <nav id="wizard-nav" class="wizard-nav" aria-label="Etapas de configuração e publicação">
+        <button type="button" data-step-target="1" aria-current="step" aria-controls="repository-panel">1. Aplicativo</button>
+        <button type="button" data-step-target="2" aria-controls="admob-settings">2. Anúncios</button>
+        <button type="button" data-step-target="3" aria-controls="build-panel">3. Compilar</button>
+        <button type="button" data-step-target="4" aria-controls="progress-panel">4. Resultados</button>
+        <button type="button" data-step-target="5" aria-controls="signing-panel">5. Assinar</button>
+      </nav>
+      <div class="wizard-info">
+        <strong id="wizard-count">Etapa 1 de 5 · Aplicativo</strong>
+        <progress id="wizard-progress" max="5" value="1" aria-label="Etapa atual de cinco etapas">1 de 5</progress>
+        <p id="wizard-message" role="status" aria-live="polite">Escolha um aplicativo Android para começar.</p>
+      </div>
       <div class="columns">
-        <section class="panel">
+        <section class="panel" id="repository-panel">
           <h2>1 · Repositório</h2>
           <p>A lista exibe somente repositórios com estrutura Android verificável (Gradle e AndroidManifest.xml). Projetos apenas web não aparecem.</p>
           <label for="repo-select">Projetos disponíveis</label>
@@ -66,8 +79,12 @@
             </form>
           </details>
           <hr>
-          <button id="install-btn" class="secondary wide" disabled>Instalar/atualizar workflows de build, assinatura e chave</button>
-          <p class="small">Esta ação instala os três workflows na branch padrão do projeto. Não altera o código Android.</p>
+          <details class="wizard-advanced">
+            <summary>Gerenciar workflows (avançado)</summary>
+            <p class="small">O Universal Build instala o workflow necessário ao iniciar a primeira compilação. Atualizar manualmente pode substituir arquivos YAML personalizados na branch padrão.</p>
+            <button id="install-btn" class="secondary wide" disabled>Instalar/atualizar workflows de build, assinatura e chave</button>
+            <p class="small">Esta ação altera os três workflows na branch padrão do projeto. Não altera o código Android.</p>
+          </details>
         </section>
       <section class="panel" id="admob-settings">
         <h2>2 · Monetização · Google AdMob</h2>
@@ -109,7 +126,7 @@
         </form>
       </section>
       </div>
-        <section class="panel history">
+        <section class="panel history" id="build-panel">
           <h2>3 · Configurar e compilar</h2>
           <p class="small">A compilação usará a branch escolhida no primeiro card. Modificações nos IDs de anúncios exigem novo APK/AAB.</p>
           <form id="build-form">
@@ -150,7 +167,7 @@
             <button id="run-btn" type="submit" class="primary wide" disabled>Iniciar build</button>
           </form>
         </section>
-      <section class="panel history">
+      <section class="panel history" id="progress-panel">
         <div class="inline space"><div><h2>4 · Progresso, compilações e downloads</h2><p>Acompanhe a compilação atual. Downloads usam a página oficial do GitHub para evitar bloqueios de CORS.</p></div><button id="refresh-runs" class="secondary" disabled>Atualizar</button></div>
         <div id="build-progress" class="build-progress" role="status" aria-live="polite" hidden>
           <strong id="build-progress-title">Aguardando build</strong>
@@ -165,7 +182,7 @@
           <p class="small">Lista por branch, com arquivos disponíveis para baixar ou assinar. <a id="all-builds-link" href="https://github.com" target="_blank" rel="noopener noreferrer">Ver histórico completo no GitHub ↗</a></p>
         </details>
       </section>
-      <section class="panel history">
+      <section class="panel history" id="signing-panel">
         <h2>5 · Assinatura · somente após compilar</h2>
         <p>Escolha um AAB sem assinatura no histórico da opção 4 ou informe abaixo o número da execução e o nome exato do artefato. A assinatura acontece no GitHub Actions.</p>
         <details id="keygen-details" class="keygen-setup">
@@ -237,6 +254,10 @@
           <p class="small">Para assinar, configure os quatro secrets ANDROID_KEYSTORE_* no GitHub. <a id="sign-runs-link" href="https://github.com" target="_blank" rel="noopener noreferrer">Acompanhar assinaturas no GitHub ↗</a>. Não informe senhas neste formulário.</p>
         </form>
       </section>
+      <div class="wizard-actions" aria-label="Navegar entre etapas">
+        <button type="button" class="secondary" id="wizard-prev">Anterior</button>
+        <button type="button" class="primary" id="wizard-next">Continuar</button>
+      </div>
       <footer>Universal Build · Serviço estático, sem banco de dados e sem servidor próprio. Compilações executadas no GitHub Actions.</footer>
     </section>
   </main>
