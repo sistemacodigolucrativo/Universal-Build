@@ -67,7 +67,7 @@ O usuário também pode abrir uma etapa diretamente após selecionar repositóri
 - [x] Seleção de AAB unsigned anterior abre Assinar com Run ID e artifact já preenchidos.
 - [x] Status de Secrets fora do menu de geração, com aviso de que valores não são observáveis.
 - [x] Testes unitários e fluxo de DOM simulado adicionados ao CI.
-- [ ] Execução do CI desta branch verificada como concluída com sucesso.
+- [x] [CI da branch concluído com sucesso — execução 45220977322](https://github.com/sistemacodigolucrativo/Universal-Build/actions/runs/45220977322); suíte Node, scripts shell, auditoria de IDs e workflows.
 - [ ] Teste manual no Chrome Android (retrato/paisagem, rolagem, teclado e leitor de tela).
 - [ ] Fluxo autenticado: AdMob, build, histórico, ZIP, AAB e Secrets reais.
 - [ ] SHA-256 do certificado do AAB confrontado com Play Console quando o app já estiver publicado.
