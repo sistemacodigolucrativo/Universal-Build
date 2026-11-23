@@ -104,8 +104,13 @@ test("navegação bloqueia avançar sem repo, preserva AdMob não salvo e abre a
     emit("ub:sign-selected");
     assert.equal(ids.get("signing-panel").hidden, false);
     assert.equal(ids.get("wizard-next").hidden, true);
+    ids.get("repo-select").value = "";
     ids.get("logout-btn").dispatch("click");
     assert.equal(ids.get("repository-panel").hidden, false);
+    assert.equal(ids.get("wizard-next").disabled, true);
+    assert.equal(controller.show(5, false), false, "sessão sem aplicativo não pode assinar");
+    ids.get("repo-select").value = "owner/android-app";
+    ids.get("repo-select").dispatch("change");
     assert.equal(controller.show(5, false), true, "assinatura histórica funciona sem novo build");
   } finally {
     global.document = original.document;
