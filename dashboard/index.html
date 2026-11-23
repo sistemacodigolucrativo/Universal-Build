@@ -185,10 +185,10 @@
       <section class="panel history" id="signing-panel">
         <h2>5 · Assinatura · somente após compilar</h2>
         <p>Escolha um AAB sem assinatura no histórico da opção 4 ou informe abaixo o número da execução e o nome exato do artefato. A assinatura acontece no GitHub Actions.</p>
+        <p id="keygen-secrets-status" class="small" role="status" aria-live="polite">Selecione o aplicativo para verificar se os Secrets estão cadastrados. O GitHub não mostra seus valores.</p>
         <details id="keygen-details" class="keygen-setup">
           <summary>🔑 Gerar chave e configurar assinatura automaticamente</summary>
-          <p>Para a <strong>primeira publicação</strong> deste aplicativo. Se o app já foi publicado, reutilize a chave original na opção avançada abaixo.</p>
-          <p id="keygen-secrets-status" class="small" role="status" aria-live="polite">Selecione o aplicativo para verificar os Secrets.</p>
+          <p>Somente para a <strong>primeira publicação</strong>. Se o aplicativo já foi publicado ou a chave já existe, não gere outra. Reutilize a chave original.</p>
           <button id="keygen-auto-start" class="primary wide" type="button" disabled>1. Preparar chave e senha automaticamente</button>
           <div id="keygen-password-box" class="keygen-password-box" hidden>
             <p><strong>Guarde sua senha de recuperação!</strong> Não é possível recuperá-la do GitHub. Mantenha em um gerenciador de senhas privado.</p>
@@ -251,7 +251,7 @@
             <a id="secrets-link" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">Configurar secrets no repositório ↗</a>
           </div>
           <p id="sign-validation" class="small" role="status" aria-live="polite">Selecione um projeto e preencha os dois campos para habilitar a assinatura.</p>
-          <p class="small">Para assinar, configure os quatro secrets ANDROID_KEYSTORE_* no GitHub. <a id="sign-runs-link" href="https://github.com" target="_blank" rel="noopener noreferrer">Acompanhar assinaturas no GitHub ↗</a>. Não informe senhas neste formulário.</p>
+          <p class="small">Se os quatro Secrets já existem, não precisa editá-los; a presença deles não prova que os valores estão corretos. Para assinar, configure os quatro secrets ANDROID_KEYSTORE_* no GitHub. <a id="sign-runs-link" href="https://github.com" target="_blank" rel="noopener noreferrer">Acompanhar assinaturas no GitHub ↗</a>. Não informe senhas neste formulário.</p>
         </form>
       </section>
       <div class="wizard-actions" aria-label="Navegar entre etapas">
