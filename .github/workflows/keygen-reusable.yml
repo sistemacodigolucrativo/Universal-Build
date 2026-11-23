@@ -1,0 +1,85 @@
+name: Universal Build - Gerar chave (reutilizável)
+on:
+  workflow_call:
+    secrets:
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  keygen:
+    name: Gerar chave nova e exportar cópia criptografada
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verificar primeira geração e segredo de proteção
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          EXISTING_UPLOAD_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$EXISTING_UPLOAD_KEY" ]]; then
+            echo "Já existe uma chave cadastrada no repositório. Não gerar outra para atualizar o mesmo aplicativo."
+            exit 3
+          fi
+          if [[ "${#STORE_PASSWORD}" -lt 20 ]]; then
+            echo "Cadastre ANDROID_KEYSTORE_PASSWORD com 20 ou mais caracteres em GitHub Secrets."
+            exit 3
+          fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/checkout@v4
+        with:
+          repository: sistemacodigolucrativo/Universal-Build
+          ref: main
+          path: .ub-core
+          persist-credentials: false
+      - name: Criar PKCS12 com extensão JKS e certificado público
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/key-package"
+          keytool -genkeypair -noprompt -storetype PKCS12 \
+            -keystore "$RUNNER_TEMP/upload-key.jks" \
+            -alias upload -keyalg RSA -keysize 3072 -sigalg SHA256withRSA \
+            -validity 36500 -dname "CN=Android Upload Key, O=Universal Build" \
+            -storepass "$STORE_PASSWORD" -keypass "$STORE_PASSWORD"
+          keytool -exportcert -rfc -alias upload -storetype PKCS12 \
+            -keystore "$RUNNER_TEMP/upload-key.jks" -storepass "$STORE_PASSWORD" \
+            -file "$RUNNER_TEMP/key-package/upload-certificate.pem"
+          printf '%s\n' 'Cópia de segurança criptografada (AES-256-GCM).' \
+            'Chave: upload-key.jks.ubenc; certificado público: upload-certificate.pem.' \
+            'Alias: upload. Senha da chave: igual à senha do keystore.' \
+            'Para recuperar, importe o arquivo .ubenc no painel Universal Build.' \
+            'Guarde a chave recuperada e a senha fora do GitHub.' \
+            > "$RUNNER_TEMP/key-package/LEIA-ME.txt"
+      - name: Criptografar chave privada antes de publicar o artifact
+        env:
+          UB_GENERATED_KEY: ${{ runner.temp }}/upload-key.jks
+          UB_ENCRYPTED_OUTPUT: ${{ runner.temp }}/key-package/upload-key.jks.ubenc
+          UB_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: node .ub-core/scripts/keygen-encrypt.cjs
+      - name: Apagar cópia temporária não criptografada
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/upload-key.jks"
+      - name: Disponibilizar backup criptografado e certificado
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-chave-upload-criptografada
+          path: ${{ runner.temp }}/key-package/
+          retention-days: 7
+          if-no-files-found: error
