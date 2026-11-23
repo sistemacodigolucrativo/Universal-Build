@@ -1,0 +1,14 @@
+# Instalar em .github/workflows/universal-keygen.yml no repositório Android.
+name: Universal Build - Criar chave de upload
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keygen:
+    uses: sistemacodigolucrativo/Universal-Build/.github/workflows/keygen-reusable.yml@main
+    secrets:
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
