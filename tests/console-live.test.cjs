@@ -126,7 +126,7 @@ test("console UI is wired to real Actions jobs and artifact download", () => {
     "build-progress-bar", "build-progress-title", "build-progress-label", "admob-settings"]) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
-  assert.match(html, /src="\.\/artifact-download\.js"/);
+  assert.doesNotMatch(html, /src="\.\/artifact-download\.js"/);
   assert.match(html, /src="\.\/build-progress\.js"/);
   assert.match(html, /src="\.\/keygen-client\.js"/);
   for (const id of ["history-details", "history-list", "keygen-start", "keygen-unlock", "keygen-save-jks", "keygen-copy-base64"]) assert.match(html, new RegExp('id="' + id + '"'));
