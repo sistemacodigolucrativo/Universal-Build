@@ -60,6 +60,7 @@
     $("keygen-password").value = "";
     $("keygen-encrypted").value = "";
     $("keygen-result").textContent = "A chave será desbloqueada somente neste navegador.";
+    window.UniversalSigningSetup?.onLock();
   }
   function clearSession() {
     forgetRecoveredKey();
@@ -90,6 +91,7 @@
     $("history-details").open = false;
     $("admob-save").disabled = true;
     $("admob-status").textContent = "Selecione um projeto Android para carregar as configurações.";
+    window.UniversalSigningSetup?.clearSensitive();
     localStorage.removeItem(STORAGE);
     $("token").value = "";
     $("app-view").hidden = true;
@@ -364,6 +366,7 @@
       p.textContent = "Selecione um repositório para visualizar o histórico.";
       $("run-list").append(p);
     }
+    window.UniversalSigningSetup?.onRepoChange();
   }
 
   function changeBranch() {
@@ -582,7 +585,7 @@
   async function unlockUploadKey() {
     const btn = $("keygen-unlock");
     const file = $("keygen-encrypted").files[0];
-    const password = $("keygen-password").value;
+    const password = $("keygen-password").value || $("keygen-quick-password").value;
     if (!file || !file.name.endsWith(".ubenc")) return notice("Selecione um arquivo .ubenc.", true);
     btn.disabled = true;
     if (recoveredUploadKey) new Uint8Array(recoveredUploadKey).fill(0);
@@ -593,6 +596,7 @@
       recoveredUploadKey = await window.UniversalKeygen.decrypt(encrypted, password);
       $("keygen-recovered").hidden = false;
       $("keygen-result").textContent = "Chave desbloqueada localmente. Baixe e faça backup agora.";
+      window.UniversalSigningSetup?.onUnlock(password);
     } catch (err) {
       $("keygen-result").textContent = err.message;
       notice(err.message, true);
@@ -1063,5 +1067,9 @@
   window.setInterval(() => {
     if (!document.hidden && state.repo && isSessionValid()) refreshRuns();
   }, 12000);
+  window.UniversalSigningSetup.init({
+    api, repoPath, selected, ensureKeygenWorkflow, notice,
+    getRecoveredKey: () => recoveredUploadKey
+  });
   restore();
 })();

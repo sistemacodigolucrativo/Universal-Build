@@ -44,3 +44,14 @@
 #build-advanced summary{min-height:28px}
 @media(max-width:530px){.keygen-recovered .inline button{width:100%}.artifact-actions a{width:100%}}
 
+
+/* Automatic signing setup; secrets only in volatile browser memory. */
+.keygen-password-box{margin:14px 0;padding:13px;border:1px solid #446b93;border-radius:10px;background:#14273d}
+.keygen-password-box[hidden]{display:none}
+.keygen-password-box p{margin-top:0}
+.keygen-existing{margin:15px 0;padding:12px;border:1px solid #30425e;border-radius:10px}
+.keygen-existing summary{min-height:28px}
+.keygen-setup button.wide{margin-top:10px}
+.keygen-setup input[readonly]{background:#101d32}
+.keygen-recovered .admob-check,.keygen-password-box .admob-check{display:flex;align-items:center;gap:8px;margin:14px 0}
+@media(max-width:530px){.keygen-password-box .inline button{width:100%}}
